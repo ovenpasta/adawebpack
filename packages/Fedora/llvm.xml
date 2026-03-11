@@ -16,7 +16,7 @@
       <grep regexp="^[-\w]*gcc \S+ (\S+)" group="1"></grep>
     </variable>
     <runtimes default="default,native">
-       <directory group="default" >\.\./lib/rts-native/adalib/</directory>
+       <directory group="default" >\.\./lib/gnat-llvm/wasm32/rts-wasm/adalib/</directory>
     </runtimes>
     <target>llvm</target>
   </compiler_description>

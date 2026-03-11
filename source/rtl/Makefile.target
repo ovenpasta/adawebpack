@@ -12,8 +12,6 @@ a-finali.adb \
 a-finali.ads \
 a-ioexce.ads \
 a-iteint.ads \
-a-nbnbig.adb \
-a-nbnbig.ads \
 a-nllefu.ads \
 a-nubinu.ads \
 a-numeri.ads \
@@ -55,12 +53,16 @@ s-fatgen.adb \
 s-fatgen.ads \
 s-fatlfl.ads \
 s-fatllf.ads \
-s-finmas.ads \
+s-finpri.ads \
 s-finroo.adb \
 s-finroo.ads \
 s-flocon.ads \
 s-htable.adb \
 s-htable.ads \
+s-imagea.adb \
+s-imagea.ads \
+s-imad32.ads \
+s-imad64.ads \
 s-imagei.adb \
 s-imagei.ads \
 s-imager.adb \
@@ -146,10 +148,6 @@ s-wchcnv.ads \
 s-wchstw.ads \
 s-wchwts.adb \
 s-wchwts.ads \
-s-widthu.adb \
-s-widthu.ads \
-s-widllu.ads \
-s-widuns.ads \
 s-unstyp.ads \
 unchconv.ads
 
@@ -243,12 +241,16 @@ s-powlfl.ads \
 s-powllf.ads \
 s-retsta.ads \
 s-spark.ads \
+s-imad32.ads \
+s-imad64.ads \
+s-oslock.ads \
 s-unstyp.ads \
 s-vallfl.ads \
 s-valllu.ads \
 s-vaenu8.ads \
-s-widllu.ads \
-s-widuns.ads \
+s-vs_int.ads \
+s-vs_llu.ads \
+s-vs_uns.ads \
 unchconv.ads \
 
 #gnat.ads     \
@@ -262,23 +264,26 @@ unchdeal.ads \
 a-contai.ads \
 
 COMPILE=$(ADAC) -c -gnatpg -nostdinc -I../adainclude
-COMPILE+=--target=wasm32 -gnateT=../../../adawebpack_src/source/rtl/wasm32.atp
+COMPILE+=--target=wasm32 -gnateT=../target.atp
 AWP_SRC=adawebpack_src/source
 RTS_SRC=rts-sources
 
-WASMINCLUDE=lib/rts-native/adainclude
-WASMLIB=lib/rts-native/adalib
+WASMRUNTIME=lib/gnat-llvm/wasm32/rts-wasm
+WASMINCLUDE=$(WASMRUNTIME)/adainclude
+WASMLIB=$(WASMRUNTIME)/adalib
 
 wasm: build
-	cp adawebpack_src/source/rtl/wasm32.atp bin/target.atp
 	$(RMDIR) $(WASMINCLUDE) $(WASMLIB)
 	$(MKDIR) $(WASMINCLUDE) $(WASMLIB)
+	cp -p $(AWP_SRC)/rtl/wasm32.atp $(WASMRUNTIME)/target.atp
 	for f in $(COMMON_WASM_SRCS); do \
 	  cp -p $(GNAT_SRC)/libgnat/$$f $(WASMINCLUDE); \
 	done
 	cp -p $(AWP_SRC)/rtl/a-elchha__wasm.adb $(WASMINCLUDE)/a-elchha.adb
 	cp -p $(RTS_SRC)/light/exceptions/a-elchha.ads $(WASMINCLUDE)/
 	cp -p $(AWP_SRC)/rtl/a-except.ad[sb] $(WASMINCLUDE)/
+	cp -p $(AWP_SRC)/rtl/s-imagei__wasm.adb $(WASMINCLUDE)/s-imagei.adb
+	cp -p $(AWP_SRC)/rtl/s-imageu__wasm.adb $(WASMINCLUDE)/s-imageu.adb
 #	cp -p $(GNAT_SRC)/hie/i-c__hie.ads $(WASMINCLUDE)/i-c.ads
 	cp -p $(RTS_SRC)/math/a-ngelfu.ad[sb] $(WASMINCLUDE)/
 	cp -p $(RTS_SRC)/math/a-nlelfu.ads $(WASMINCLUDE)/
@@ -286,7 +291,8 @@ wasm: build
 	cp -p $(AWP_SRC)/rtl/system.ads $(WASMINCLUDE)/
 	cp -p $(RTS_SRC)/light/s-assert.adb $(WASMINCLUDE)/
 	cp -p $(AWP_SRC)/rtl/s-builti.ad[sb] $(WASMINCLUDE)
-	cp -p $(AWP_SRC)/rtl/s-finmas__wasm.adb $(WASMINCLUDE)/s-finmas.adb
+	cp -p $(AWP_SRC)/rtl/s-finpri__wasm.adb $(WASMINCLUDE)/s-finpri.adb
+	cp -p $(GNAT_SRC)/libgnat/s-oslock__dummy.ads $(WASMINCLUDE)/s-oslock.ads
 	cp -p $(RTS_SRC)/math/s-gcmain.ad[sb] $(WASMINCLUDE)/
 	cp -p $(RTS_SRC)/full/s-init.ads $(WASMINCLUDE)/
 	cp -p $(AWP_SRC)/rtl/s-init.adb $(WASMINCLUDE)/
@@ -324,5 +330,13 @@ wasm: build
 	  echo "<<< Compile $$f"; \
 	  if [ $$f != '../adainclude/a-excach.adb' -a $$f != '../adainclude/s-dorepr.adb' ]; then $(COMPILE) $$f || exit 1; fi \
 	done
-	cd $(WASMLIB) && $(CHMOD) a-wx *.ali && $(AR) libgnat.a *.o && $(LLVM_RANLIB) libgnat.a && $(RM) *.o
-
+	cd $(WASMLIB) && $(CHMOD) a-wx *.ali && \
+	  objs=""; \
+	  for f in *.o; do \
+	    if [ -s "$$f" ]; then \
+	      objs="$$objs $$f"; \
+	    fi; \
+	  done; \
+	  $(AR) libgnat.a $$objs && $(LLVM_RANLIB) libgnat.a && $(RM) *.o
+	echo "adainclude" > $(WASMRUNTIME)/ada_source_path
+	echo "adalib" > $(WASMRUNTIME)/ada_object_path

@@ -1,7 +1,8 @@
 [![Build binaries](https://github.com/godunko/adawebpack/actions/workflows/build.yml/badge.svg)](https://github.com/godunko/adawebpack/actions/workflows/build.yml)
 
 # AdaWebPack
-AdaWebPack includes GNAT-LLVM compiler for WebAssembly target, GNAT Run Time Library and AdaWebPack bindings for Web API.
+AdaWebPack provides the WebAssembly runtime and Web API bindings used with the
+generic GNAT-LLVM compiler.
 
 ## How to install
 
@@ -17,25 +18,41 @@ You will also need `wasm-ld`, the Web asssembly linker. You will find this:
 
  * Setup GNAT using [Alire](https://alire.ada.dev/).
 
- * Clone [GNAT-LLVM](https://github.com/AdaCore/gnat-llvm). Latest known good revision of GNAT-LLVM compatible with GNAT FSF is `66e36d929524972353600db5d604d0189cf0308f`.
+ * Clone [GNAT-LLVM](https://github.com/ovenpasta/gnat-llvm). Use branch
+   `wasm-backend`.
    ```
-   git clone https://github.com/AdaCore/gnat-llvm
-   git -C gnat-llvm checkout 66e36d929524972353600db5d604d0189cf0308f
-   ```
-
- * Clone [bb-runtimes](https://github.com/Fabien-Chouteau/bb-runtimes). Use `gnat-fsf-14` branch.
-   ```
-   git clone -b gnat-fsf-14 https://github.com/Fabien-Chouteau/bb-runtimes gnat-llvm/llvm-interface/bb-runtimes
+   git clone --branch=wasm-backend https://github.com/ovenpasta/gnat-llvm
    ```
 
- * Clone [GCC](https://github.com/gcc-mirror/gcc) sources. Use, for instance, `releases/gcc-14.1.0` commit.
+   This repository now expects a GCC 15-compatible GNAT-LLVM tree with the
+   required target-conditional WebAssembly compiler support already present in
+   the checked-out branch. No `patch -p1 < adawebpack_src/patches/*.patch`
+   step is needed.
+
+ * Clone [llvm-bindings](https://github.com/AdaCore/llvm-bindings) into the
+   `gnat-llvm` checkout.
    ```
-   git clone --single-branch --branch=releases/gcc-14 --shallow-since=01-04-2024 https://github.com/gcc-mirror/gcc gnat-llvm/llvm-interface/gcc
-   git -C gnat-llvm/llvm-interface/gcc checkout releases/gcc-14.1.0
+   git clone https://github.com/AdaCore/llvm-bindings gnat-llvm/llvm-bindings
    ```
+
+ * Clone [bb-runtimes](https://github.com/ovenpasta/bb-runtimes). Use the
+   GCC 15 branch `gnat-fsf-15`.
+   ```
+   git clone -b gnat-fsf-15 https://github.com/ovenpasta/bb-runtimes gnat-llvm/llvm-interface/bb-runtimes
+   ```
+
+ * Clone [GCC](https://github.com/gcc-mirror/gcc) sources. Use a GCC 15 release branch or tag.
+   ```
+   git clone --single-branch --branch=releases/gcc-15 https://github.com/gcc-mirror/gcc gnat-llvm/llvm-interface/gcc
+   git -C gnat-llvm/llvm-interface/gcc checkout releases/gcc-15.2.0
+   git -C gnat-llvm/llvm-interface/gcc apply ../patches/gcc-15-repinfo-accessors.patch
+   ```
+
+   This is a small `Repinfo` accessor patch required by the current
+   `gnat-llvm` branch when building against upstream GCC 15 sources.
 
  * Setup GNAT-LLVM development environment, see details in
-   [GNAT-LLVM README](https://github.com/AdaCore/gnat-llvm). Note, you need to use
+   [GNAT-LLVM README](https://github.com/ovenpasta/gnat-llvm). Note, you need to use
    externally build LLVM with enabled 'lld' project and 'WebAssembly' target,
    so, if you build it your-self, `cmake` command line should contain among other switches:
 
@@ -43,21 +60,22 @@ You will also need `wasm-ld`, the Web asssembly linker. You will find this:
    cmake ... -DLLVM_ENABLE_PROJECTS='...;clang;lld' -DLLVM_TARGETS_TO_BUILD="...;WebAssembly"
    ```
 
-   On Ubuntu it is possible to install prebuild LLVM/CLang packages (use LLVM/CLang 16). However,
+   On Ubuntu it is possible to install prebuilt LLVM/Clang packages. However,
    alternatives need to be updated using the provided script:
 
    ```
-   sudo utilities/update-alternatives-clang.sh 16 100
+   sudo utilities/update-alternatives-clang.sh 21 100
    ```
 
-   Or install a [LLVM 16 binary release](https://github.com/llvm/llvm-project/releases) (`llvm-16`, `lld-16` and `clang-16` are required).
+   Or install an [LLVM 21 binary release](https://github.com/llvm/llvm-project/releases)
+   (`llvm-21`, `lld-21` and `clang-21` are required).
 
  * Checkout AdaWebPack repository into `gnat-llvm/llvm-interface` as
    `adawebpack_src` and create link for Makefile.target.
 
    ```
    cd gnat-llvm/llvm-interface
-   git clone https://github.com/godunko/adawebpack.git adawebpack_src
+   git clone --branch=gcc-15-wasm-rts https://github.com/ovenpasta/adawebpack.git adawebpack_src
    ln -s adawebpack_src/source/rtl/Makefile.target
    cd -
    ```
@@ -76,37 +94,80 @@ You will also need `wasm-ld`, the Web asssembly linker. You will find this:
    cd -
    ```
 
- * Apply patch to GNAT-LLVM repository
+ * Build the GNAT-LLVM compiler.
    ```
    cd gnat-llvm/llvm-interface
-   patch -p1 < adawebpack_src/patches/gnat-llvm.patch
-   patch -p1 < adawebpack_src/patches/llvm_wrapper2.patch
+   make build
    cd -
    ```
 
- * Use `make wasm` to build compiler and Run Time Library
+   On Arch Linux, some LLVM/Clang packages require the monolithic
+   `clang-cpp` library:
+
+   ```
+   cd gnat-llvm/llvm-interface
+   make build CLANG_LINK_LIB=clang-cpp
+   cd -
+   ```
+
+   If the built tools cannot locate LLVM shared libraries at runtime, pass
+   `LD_LIBRARY_PATH` when invoking `make`:
+
+   ```
+   cd gnat-llvm/llvm-interface
+   LD_LIBRARY_PATH=/usr/lib make build
+   cd -
+   ```
+
+ * Use `make wasm` to build the WebAssembly runtime package
    ```
    cd gnat-llvm/llvm-interface
    make wasm
    cd -
    ```
 
- * When `make` finishes, you will find toolchain in `gnat-llvm/llvm-interface/bin`.
+   On Arch Linux:
+
+   ```
+   cd gnat-llvm/llvm-interface
+   make wasm CLANG_LINK_LIB=clang-cpp
+   cd -
+   ```
+
+   If the built tools cannot locate LLVM shared libraries at runtime, pass
+   `LD_LIBRARY_PATH` when invoking `make`:
+
+   ```
+   cd gnat-llvm/llvm-interface
+   LD_LIBRARY_PATH=/usr/lib make wasm
+   cd -
+   ```
+
+ * When `make` finishes, you will find the toolchain in
+   `gnat-llvm/llvm-interface/bin` and the packaged WASM runtime in
+   `gnat-llvm/llvm-interface/lib/gnat-llvm/wasm32/rts-wasm`.
+
+ * Add the compiler tools to your `PATH`.
    ```
    cd gnat-llvm/llvm-interface
    export PATH=$PWD/bin:$PATH
    cd -
    ```
 
- * Now you can build examples:
+ * Build the examples against the packaged runtime:
    ```
-   cd gnat-llvm/llvm-interface/adawebpack_src
-   make build_examples
+   cd gnat-llvm/llvm-interface
+   PATH=$PWD/bin:$PATH \
+     make -C adawebpack_src build_examples \
+       GPRBUILD_FLAGS="--target=llvm --RTS=$PWD/lib/gnat-llvm/wasm32/rts-wasm"
    cd -
    ```
    You will most likely need to run the examples through an HTTP server;
    otherwise, the browser will report a security error and/or refuse to load the page.
    An easy way to obtain an HTTP server is by via Python 3 with `python3 -m http.server`.
+
+ * Additional runtime-side GCC 15 details are documented in
+   [PORTING-GCC15.md](PORTING-GCC15.md).
 
 ## Usage with Docker
 

@@ -71,12 +71,14 @@ You will also need `wasm-ld`, the Web asssembly linker. You will find this:
    (`llvm-21`, `lld-21` and `clang-21` are required).
 
  * Checkout AdaWebPack repository into `gnat-llvm/llvm-interface` as
-   `adawebpack_src` and create link for Makefile.target.
+   `adawebpack_src` and replace the tracked `Makefile.target` stub with the
+   AdaWebPack runtime fragment.
 
    ```
    cd gnat-llvm/llvm-interface
    git clone --branch=gcc-15-wasm-rts https://github.com/ovenpasta/adawebpack.git adawebpack_src
-   ln -s adawebpack_src/source/rtl/Makefile.target
+   mv Makefile.target Makefile.target.orig
+   ln -s adawebpack_src/source/rtl/Makefile.target Makefile.target
    cd -
    ```
 

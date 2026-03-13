@@ -121,6 +121,26 @@ You will also need `wasm-ld`, the Web asssembly linker. You will find this:
    cd -
    ```
 
+   If you build with an Alire-provided GNAT toolchain, `default.cgpr` may
+   retain toolchain paths from an earlier configuration. Remove it before
+   rebuilding if you need the build to re-detect the active toolchain:
+
+   ```
+   cd gnat-llvm/llvm-interface
+   rm -f default.cgpr
+   cd -
+   ```
+
+   On some Linux distributions, the Alire-selected linker fails while linking
+   against the LLVM/Clang static libraries. Use `lld` explicitly instead of
+   replacing `ld` with a symlink:
+
+   ```
+   cd gnat-llvm/llvm-interface
+   make build CXXFLAGS=-fuse-ld=lld
+   cd -
+   ```
+
  * Use `make wasm` to build the WebAssembly runtime package
    ```
    cd gnat-llvm/llvm-interface
@@ -142,6 +162,15 @@ You will also need `wasm-ld`, the Web asssembly linker. You will find this:
    ```
    cd gnat-llvm/llvm-interface
    LD_LIBRARY_PATH=/usr/lib make wasm
+   cd -
+   ```
+
+   The same workaround applies here if you are building through an
+   Alire-managed toolchain:
+
+   ```
+   cd gnat-llvm/llvm-interface
+   make wasm CXXFLAGS=-fuse-ld=lld
    cd -
    ```
 

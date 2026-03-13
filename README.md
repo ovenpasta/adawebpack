@@ -19,9 +19,9 @@ You will also need `wasm-ld`, the Web asssembly linker. You will find this:
  * Setup GNAT using [Alire](https://alire.ada.dev/).
 
  * Clone [GNAT-LLVM](https://github.com/ovenpasta/gnat-llvm). Use branch
-   `wasm-backend`.
+   `gcc-15`.
    ```
-   git clone --branch=wasm-backend https://github.com/ovenpasta/gnat-llvm
+   git clone --branch=gcc-15 https://github.com/ovenpasta/gnat-llvm
    ```
 
    This repository now expects a GCC 15-compatible GNAT-LLVM tree with the

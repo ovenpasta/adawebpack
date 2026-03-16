@@ -1,2 +1,5 @@
 .objs
 *.wasm
+*.mjs
+*.ll
+*.o

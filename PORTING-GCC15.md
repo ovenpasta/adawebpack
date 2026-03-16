@@ -69,53 +69,23 @@ in the GCC 15 runtime sources. The local runtime therefore:
 
 ### Runtime package layout
 
-The WASM runtime is now emitted as a packaged runtime root:
+The WASM runtime is emitted as a packaged runtime root consumed via
+`--RTS=`. See `gnat-llvm/llvm-interface/SEPARATE-RUNTIMES.md` for the
+full layout and `--RTS` usage. Build commands are in `BUILD-WASM.md`.
+Example build instructions are in `README.md` and `examples/sdl3/README.md`.
 
-```text
-lib/gnat-llvm/wasm32/rts-wasm/
-  target.atp
-  ada_source_path
-  ada_object_path
-  adainclude/
-  adalib/
-```
+## Why rts-wasm-emcc exists
 
-This is the runtime consumed by:
+When linking Ada with Emscripten-built libraries (SDL3 etc.), the original
+`rts-wasm` runtime (TLSF allocator) caused `RuntimeError: function signature
+mismatch` crashes at runtime. The root cause: Ada's TLSF exports `malloc`,
+`free`, and `realloc` as WASM functions, shifting the indices of other
+libraries' hardcoded allocator-hook entries in the WASM function table.
+SDL's internal hint hash-table also got heap blocks freed by `SDL_Init`
+reallocated by Ada's `New_String` calls inside `SDL_AppInit`, corrupting
+live SDL structs (heap aliasing between two independent allocators).
 
-```bash
---RTS=/path/to/lib/gnat-llvm/wasm32/rts-wasm
-```
-
-## Build Commands
-
-From `gnat-llvm/llvm-interface`:
-
-```bash
-make wasm
-```
-
-On Arch Linux:
-
-```bash
-make wasm CLANG_LINK_LIB=clang-cpp
-```
-
-If LLVM shared libraries are not found at runtime:
-
-```bash
-LD_LIBRARY_PATH=/usr/lib make wasm
-```
-
-## Example Builds
-
-```bash
-PATH=$PWD/bin:$PATH \
-  make -C adawebpack_src build_examples \
-    GPRBUILD_FLAGS="--target=llvm --RTS=$PWD/lib/gnat-llvm/wasm32/rts-wasm"
-```
-
-The currently verified examples are:
-
-- `call_ada`
-- `toggle_hidden`
-- `webgl_basic`
+`rts-wasm-emcc` was created to fix both symptoms: Ada's `System.Memory`
+delegates to Emscripten's `malloc`/`free`/`realloc` via C imports instead
+of exporting its own. Ada does not add any entries to the WASM function
+table for allocation, and all code shares a single heap with no aliasing.

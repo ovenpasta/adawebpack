@@ -103,14 +103,37 @@ You will also need `wasm-ld`, the Web asssembly linker. You will find this:
    cd -
    ```
 
-   On Arch Linux, some LLVM/Clang packages require the monolithic
-   `clang-cpp` library:
+   By default, GNAT-LLVM links against `clangBasic`, so a plain:
+
+   ```
+   cd gnat-llvm/llvm-interface
+   make build
+   cd -
+   ```
+
+   uses the default `clang` / `llvm-config` toolchain on your `PATH`.
+
+   If that default Clang install exposes the monolithic unversioned
+   `clang-cpp` library instead of split Clang libraries, use:
 
    ```
    cd gnat-llvm/llvm-interface
    make build CLANG_LINK_LIB=clang-cpp
    cd -
    ```
+
+   On Arch Linux, use the versioned LLVM 21 tools explicitly when you want to
+   pin the build to LLVM 21:
+
+   ```
+   cd gnat-llvm/llvm-interface
+   export PATH=/usr/lib/llvm21/bin:$PATH
+   make build LLVM_CONFIG=llvm-config-21 CLANG_LINK_LIB=':libclang-cpp.so.21.1'
+   cd -
+   ```
+
+   This was verified from a fresh copy of the tree after installing
+   `llvm-config-21` and the matching LLVM 21 toolchain.
 
    If the built tools cannot locate LLVM shared libraries at runtime, pass
    `LD_LIBRARY_PATH` when invoking `make`:
@@ -141,42 +164,69 @@ You will also need `wasm-ld`, the Web asssembly linker. You will find this:
    cd -
    ```
 
- * Use `make wasm` to build the WebAssembly runtime package
+ * Build the WebAssembly runtime packages.
+
+   There are two runtime variants:
+
+   **`rts-wasm`** - Ada's built-in TLSF allocator. Ada owns `malloc`/`free`/
+   `realloc`. Use for standalone WASM targets without Emscripten.
+
+   **`rts-wasm-emcc`** - Delegates to Emscripten's dlmalloc. Ada, SDL, and the
+   C library all share one allocator with no WASM function-table conflicts.
+   Required for SDL3 and other Emscripten-linked examples.
+
    ```
    cd gnat-llvm/llvm-interface
-   make wasm
+   make wasm       # -> lib/gnat-llvm/wasm32/rts-wasm/
+   make wasm-emcc  # -> lib/gnat-llvm/wasm32/rts-wasm-emcc/
    cd -
    ```
 
-   On Arch Linux:
+   If your default Clang install uses the monolithic `clang-cpp` library:
 
    ```
-   cd gnat-llvm/llvm-interface
    make wasm CLANG_LINK_LIB=clang-cpp
-   cd -
+   make wasm-emcc CLANG_LINK_LIB=clang-cpp
    ```
 
-   If the built tools cannot locate LLVM shared libraries at runtime, pass
-   `LD_LIBRARY_PATH` when invoking `make`:
+   On Arch Linux with pinned LLVM 21:
 
    ```
    cd gnat-llvm/llvm-interface
+   export PATH=/usr/lib/llvm21/bin:$PATH
+   make wasm LLVM_CONFIG=llvm-config-21 CLANG_LINK_LIB=':libclang-cpp.so.21.1'
+   make wasm-emcc LLVM_CONFIG=llvm-config-21 CLANG_LINK_LIB=':libclang-cpp.so.21.1'
+   cd -
+   ```
+
+   If the built tools cannot locate LLVM shared libraries at runtime:
+
+   ```
    LD_LIBRARY_PATH=/usr/lib make wasm
-   cd -
+   LD_LIBRARY_PATH=/usr/lib make wasm-emcc
    ```
 
-   The same workaround applies here if you are building through an
-   Alire-managed toolchain:
+   Alire linker workaround (if needed):
 
    ```
-   cd gnat-llvm/llvm-interface
    make wasm CXXFLAGS=-fuse-ld=lld
-   cd -
+   make wasm-emcc CXXFLAGS=-fuse-ld=lld
    ```
 
  * When `make` finishes, you will find the toolchain in
    `gnat-llvm/llvm-interface/bin` and the packaged WASM runtime in
    `gnat-llvm/llvm-interface/lib/gnat-llvm/wasm32/rts-wasm`.
+
+ * Current verified Arch result:
+   - a fresh out-of-tree build of `make build` succeeded with
+     `LLVM_CONFIG=llvm-config-21` and `CLANG_LINK_LIB=':libclang-cpp.so.21.1'`
+   - a fresh out-of-tree build of `make wasm` also succeeded with the same
+     LLVM 21 selection plus `WASM_C_ALLOCATOR_EXPORTS=no`
+   - `Ada.Strings.Fixed` is intentionally not packaged in `rts-wasm` for now
+     because its current `wasm32` compile path in `llvm-gcc` still hits a
+     frontend assertion; see
+     `examples/tests/STRINGS_FIXED_REPORT.md`
+     for the current reduction and findings
 
  * Add the compiler tools to your `PATH`.
    ```

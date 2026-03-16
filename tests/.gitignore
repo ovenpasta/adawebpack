@@ -1,0 +1,10 @@
+# Generated build outputs
+*.js
+*.html
+*.wasm
+*.o
+.objs/
+
+# Alire workspace
+alire.toml
+alire/

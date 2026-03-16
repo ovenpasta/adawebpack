@@ -233,6 +233,10 @@ package body System.Memory is
    procedure C_Free (Ptr : System.Address);
    pragma Export (C, C_Free, "free");
 
+   function C_Realloc (Ptr : System.Address; Size : size_t)
+     return System.Address;
+   pragma Export (C, C_Realloc, "realloc");
+
    -----------
    -- Alloc --
    -----------
@@ -342,8 +346,35 @@ package body System.Memory is
    function C_Calloc
      (N_Elem : size_t; Elem_Size : size_t) return System.Address
    is
+      function Memset (M : System.Address; C : Integer; Size : size_t)
+        return System.Address
+        with Import, Convention => C, External_Name => "memset";
+
+      Size   : size_t;
+      Ptr    : System.Address;
    begin
-      return C_Malloc (N_Elem * Elem_Size);
+      --  Detect multiplication overflow before allocating.
+      if N_Elem = 0 or else Elem_Size = 0 then
+         return System.Null_Address;
+      end if;
+
+      if N_Elem > size_t'Last / Elem_Size then
+         return System.Null_Address;  --  would overflow
+      end if;
+
+      Size := N_Elem * Elem_Size;
+      Ptr  := C_Malloc (Size);
+
+      if Ptr /= System.Null_Address then
+         declare
+            Discard : System.Address;
+            pragma Warnings (Off, Discard);
+         begin
+            Discard := Memset (Ptr, 0, Size);
+         end;
+      end if;
+
+      return Ptr;
    end C_Calloc;
 
    --------------
@@ -363,6 +394,55 @@ package body System.Memory is
    begin
       Free (Ptr);
    end C_Free;
+
+   ---------------
+   -- C_Realloc --
+   ---------------
+
+   function C_Realloc (Ptr : System.Address; Size : size_t)
+     return System.Address
+   is
+      function Memcpy
+        (Dst : System.Address; Src : System.Address; N : size_t)
+        return System.Address
+        with Import, Convention => C, External_Name => "memcpy";
+
+      Block_Addr : constant System.Address := Ptr - Header_Size;
+      Old_Block  : constant Block_Access :=
+        Block_Access (Cast.To_Pointer (Block_Addr));
+      Old_Size   : size_t;
+      New_Ptr    : System.Address;
+      Discard    : System.Address;
+      pragma Warnings (Off, Discard);
+   begin
+      --  realloc(null, size) == malloc(size)
+      if Ptr = System.Null_Address then
+         return C_Malloc (Size);
+      end if;
+
+      --  realloc(ptr, 0) == free(ptr); return null
+      if Size = 0 then
+         C_Free (Ptr);
+         return System.Null_Address;
+      end if;
+
+      Old_Size := Memory.Size (Old_Block);
+
+      --  Block is already large enough - return in place.
+      if Size <= Old_Size then
+         return Ptr;
+      end if;
+
+      --  Need a larger block: allocate, copy, free old.
+      New_Ptr := C_Malloc (Size);
+      if New_Ptr = System.Null_Address then
+         return System.Null_Address;
+      end if;
+
+      Discard := Memcpy (New_Ptr, Ptr, Old_Size);
+      C_Free (Ptr);
+      return New_Ptr;
+   end C_Realloc;
 
    ------------------------
    -- Cleat_List_Present --

@@ -1,6 +1,24 @@
 # WASM runtime
 
 LLVM_RANLIB=llvm-ranlib
+# WASM_MALLOC selects the heap allocator for the WASM runtime:
+#
+#   tlsf  (default) - Ada's built-in TLSF allocator.  Ada exports "malloc",
+#                     "calloc", "realloc", "free" so that all C code (SDL,
+#                     libc) shares the same TLSF heap.  Good for standalone
+#                     WASM targets where no host allocator is available.
+#
+#   emcc  - Delegate all allocation to Emscripten's dlmalloc via the standard
+#           C symbols.  Ada's System.Memory thin-wraps malloc/free/realloc;
+#           Ada does NOT export those symbols.  Use this when building with
+#           Emscripten so that Ada, SDL, and libc all share Emscripten's heap
+#           with no WASM function-table index conflicts.
+WASM_MALLOC?=tlsf
+
+# (Legacy) When WASM_MALLOC=tlsf, this controls whether the TLSF allocator
+# exports the standard C names.  Must remain "yes" in the tlsf case so that
+# Emscripten's dlmalloc is not a second independent allocator.
+WASM_C_ALLOCATOR_EXPORTS?=yes
 
 COMMON_WASM_SRCS= \
 ada.ads      \
@@ -34,6 +52,11 @@ a-tags.adb   \
 a-tags.ads   \
 a-unccon.ads \
 a-uncdea.ads \
+i-c.adb      \
+i-c.ads      \
+i-cexten.ads \
+i-cstrin.adb \
+i-cstrin.ads \
 interfac.ads \
 s-addima.adb \
 s-addima.ads \
@@ -224,6 +247,7 @@ a-numeri.ads \
 a-string.ads \
 a-unccon.ads \
 a-uncdea.ads \
+i-cexten.ads \
 interfac.ads \
 system.ads   \
 s-exnlfl.ads \
@@ -255,8 +279,6 @@ unchconv.ads \
 
 #gnat.ads     \
 g-souinf.ads \
-i-c.ads      \
-i-cexten.ads \
 machcode.ads \
 text_io.ads  \
 unchdeal.ads \
@@ -269,68 +291,84 @@ AWP_SRC=adawebpack_src/source
 RTS_SRC=rts-sources
 
 WASMRUNTIME=lib/gnat-llvm/wasm32/rts-wasm
-WASMINCLUDE=$(WASMRUNTIME)/adainclude
-WASMLIB=$(WASMRUNTIME)/adalib
+WASMRUNTIME_EMCC=lib/gnat-llvm/wasm32/rts-wasm-emcc
 
-wasm: build
-	$(RMDIR) $(WASMINCLUDE) $(WASMLIB)
-	$(MKDIR) $(WASMINCLUDE) $(WASMLIB)
-	cp -p $(AWP_SRC)/rtl/wasm32.atp $(WASMRUNTIME)/target.atp
+# build-wasm-rts RTS_DIR MALLOC_VARIANT
+# Populate and compile one WASM runtime tree.
+# $(1) = destination runtime dir (e.g. lib/gnat-llvm/wasm32/rts-wasm)
+# $(2) = malloc variant: "tlsf" or "emcc"
+define build-wasm-rts
+	$(RMDIR) $(1)/adainclude $(1)/adalib
+	$(MKDIR) $(1)/adainclude $(1)/adalib
+	cp -p $(AWP_SRC)/rtl/wasm32.atp $(1)/target.atp
 	for f in $(COMMON_WASM_SRCS); do \
-	  cp -p $(GNAT_SRC)/libgnat/$$f $(WASMINCLUDE); \
+	  cp -p $(GNAT_SRC)/libgnat/$$f $(1)/adainclude; \
 	done
-	cp -p $(AWP_SRC)/rtl/a-elchha__wasm.adb $(WASMINCLUDE)/a-elchha.adb
-	cp -p $(RTS_SRC)/light/exceptions/a-elchha.ads $(WASMINCLUDE)/
-	cp -p $(AWP_SRC)/rtl/a-except.ad[sb] $(WASMINCLUDE)/
-	cp -p $(AWP_SRC)/rtl/s-imagei__wasm.adb $(WASMINCLUDE)/s-imagei.adb
-	cp -p $(AWP_SRC)/rtl/s-imageu__wasm.adb $(WASMINCLUDE)/s-imageu.adb
-#	cp -p $(GNAT_SRC)/hie/i-c__hie.ads $(WASMINCLUDE)/i-c.ads
-	cp -p $(RTS_SRC)/math/a-ngelfu.ad[sb] $(WASMINCLUDE)/
-	cp -p $(RTS_SRC)/math/a-nlelfu.ads $(WASMINCLUDE)/
-	cp -p $(RTS_SRC)/math/a-nuelfu.ads $(WASMINCLUDE)/
-	cp -p $(AWP_SRC)/rtl/system.ads $(WASMINCLUDE)/
-	cp -p $(RTS_SRC)/light/s-assert.adb $(WASMINCLUDE)/
-	cp -p $(AWP_SRC)/rtl/s-builti.ad[sb] $(WASMINCLUDE)
-	cp -p $(AWP_SRC)/rtl/s-finpri__wasm.adb $(WASMINCLUDE)/s-finpri.adb
-	cp -p $(GNAT_SRC)/libgnat/s-oslock__dummy.ads $(WASMINCLUDE)/s-oslock.ads
-	cp -p $(RTS_SRC)/math/s-gcmain.ad[sb] $(WASMINCLUDE)/
-	cp -p $(RTS_SRC)/full/s-init.ads $(WASMINCLUDE)/
-	cp -p $(AWP_SRC)/rtl/s-init.adb $(WASMINCLUDE)/
-	cp -p $(AWP_SRC)/rtl/s-io__wasm.adb $(WASMINCLUDE)/s-io.adb
-	cp -p $(RTS_SRC)/math/harddp/s-lidosq.adb $(WASMINCLUDE)/
-	cp -p $(RTS_SRC)/math/s-lidosq.ads $(WASMINCLUDE)/
-	cp -p $(RTS_SRC)/math/s-libdou.ad[sb] $(WASMINCLUDE)/
-	cp -p $(RTS_SRC)/math/s-libm.ad[sb] $(WASMINCLUDE)/
-	cp -p $(RTS_SRC)/math/s-libpre.ads $(WASMINCLUDE)/
-	cp -p $(RTS_SRC)/math/s-libsin.ad[sb] $(WASMINCLUDE)/
-	cp -p $(RTS_SRC)/math/hardsp/s-lisisq.adb $(WASMINCLUDE)/
-	cp -p $(RTS_SRC)/math/s-lisisq.ads $(WASMINCLUDE)/
-	cp -p $(RTS_SRC)/mem/s-memcom.ad[sb] $(WASMINCLUDE)/
-	cp -p $(RTS_SRC)/mem/s-memcop.ads $(WASMINCLUDE)/
-	cp -p $(RTS_SRC)/mem/no-cheri/s-memcop.adb $(WASMINCLUDE)/
-	cp -p $(RTS_SRC)/mem/s-memmov.ads $(WASMINCLUDE)/
-	cp -p $(RTS_SRC)/mem/no-cheri/s-memmov.adb $(WASMINCLUDE)/
-	cp -p $(AWP_SRC)/rtl/s-memory__wasm.adb $(WASMINCLUDE)/s-memory.adb
-	cp -p $(RTS_SRC)/mem/s-memset.ad[sb] $(WASMINCLUDE)/
-	cp -p $(RTS_SRC)/mem/no-cheri/s-memtyp.ads $(WASMINCLUDE)/
-	cp -p $(AWP_SRC)/rtl/s-parame.ads $(WASMINCLUDE)/
-	cp -p $(AWP_SRC)/rtl/s-soflin.adb $(WASMINCLUDE)/
-	cp -p $(AWP_SRC)/rtl/s-soflin.ads $(WASMINCLUDE)/
-	cp -p $(AWP_SRC)/rtl/s-stposu__wasm.adb $(WASMINCLUDE)/s-stposu.adb
-	cp -p $(AWP_SRC)/rtl/s-wchcon.ad[sb] $(WASMINCLUDE)/
-	cp -p $(AWP_SRC)/rtl/s-wchcnv.adb $(WASMINCLUDE)/
-	cp -p $(AWP_SRC)/rtl/s-wchstw__wasm.adb $(WASMINCLUDE)/s-wchstw.adb
-#	cp -p $(RTS_SRC)/zfp/s-sssita.ad[sb] $(WASMINCLUDE)/
-	cp -p $(GNAT_SRC)/libgnat/s-flocon__none.adb $(WASMINCLUDE)/s-flocon.adb
-	cd $(WASMLIB) && for f in $(COMPILABLE_WASM_SPECS); do \
+	cp -p $(AWP_SRC)/rtl/a-elchha__wasm.adb $(1)/adainclude/a-elchha.adb
+	cp -p $(RTS_SRC)/light/exceptions/a-elchha.ads $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/a-except.ad[sb] $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/s-imagei__wasm.adb $(1)/adainclude/s-imagei.adb
+	cp -p $(AWP_SRC)/rtl/s-imageu__wasm.adb $(1)/adainclude/s-imageu.adb
+#	cp -p $(GNAT_SRC)/hie/i-c__hie.ads $(1)/adainclude/i-c.ads
+	cp -p $(RTS_SRC)/math/a-ngelfu.ad[sb] $(1)/adainclude/
+	cp -p $(RTS_SRC)/math/a-nlelfu.ads $(1)/adainclude/
+	cp -p $(RTS_SRC)/math/a-nuelfu.ads $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/system.ads $(1)/adainclude/
+	cp -p $(RTS_SRC)/light/s-assert.adb $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/s-builti.ad[sb] $(1)/adainclude
+	cp -p $(AWP_SRC)/rtl/s-finpri__wasm.adb $(1)/adainclude/s-finpri.adb
+	cp -p $(GNAT_SRC)/libgnat/s-oslock__dummy.ads $(1)/adainclude/s-oslock.ads
+	cp -p $(RTS_SRC)/math/s-gcmain.ad[sb] $(1)/adainclude/
+	cp -p $(RTS_SRC)/full/s-init.ads $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/s-init.adb $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/s-io__wasm.adb $(1)/adainclude/s-io.adb
+	cp -p $(RTS_SRC)/math/harddp/s-lidosq.adb $(1)/adainclude/
+	cp -p $(RTS_SRC)/math/s-lidosq.ads $(1)/adainclude/
+	cp -p $(RTS_SRC)/math/s-libdou.ad[sb] $(1)/adainclude/
+	cp -p $(RTS_SRC)/math/s-libm.ad[sb] $(1)/adainclude/
+	cp -p $(RTS_SRC)/math/s-libpre.ads $(1)/adainclude/
+	cp -p $(RTS_SRC)/math/s-libsin.ad[sb] $(1)/adainclude/
+	cp -p $(RTS_SRC)/math/hardsp/s-lisisq.adb $(1)/adainclude/
+	cp -p $(RTS_SRC)/math/s-lisisq.ads $(1)/adainclude/
+	cp -p $(RTS_SRC)/mem/s-memcom.ad[sb] $(1)/adainclude/
+	cp -p $(RTS_SRC)/mem/s-memcop.ads $(1)/adainclude/
+	cp -p $(RTS_SRC)/mem/no-cheri/s-memcop.adb $(1)/adainclude/
+	cp -p $(RTS_SRC)/mem/s-memmov.ads $(1)/adainclude/
+	cp -p $(RTS_SRC)/mem/no-cheri/s-memmov.adb $(1)/adainclude/
+	if [ "$(2)" = "emcc" ]; then \
+	  cp -p $(AWP_SRC)/rtl/s-memory__wasm_emcc.adb $(1)/adainclude/s-memory.adb; \
+	else \
+	  cp -p $(AWP_SRC)/rtl/s-memory__wasm.adb $(1)/adainclude/s-memory.adb; \
+	  if [ "$(WASM_C_ALLOCATOR_EXPORTS)" = "no" ]; then \
+	    sed -i \
+	      -e 's/"malloc"/"__gnat_c_malloc"/' \
+	      -e 's/"calloc"/"__gnat_c_calloc"/' \
+	      -e 's/"free"/"__gnat_c_free"/' \
+	      $(1)/adainclude/s-memory.adb; \
+	  fi; \
+	fi
+	cp -p $(RTS_SRC)/mem/s-memset.ad[sb] $(1)/adainclude/
+	cp -p $(RTS_SRC)/mem/no-cheri/s-memtyp.ads $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/s-parame.ads $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/s-soflin.adb $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/s-soflin.ads $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/s-stposu__wasm.adb $(1)/adainclude/s-stposu.adb
+	cp -p $(AWP_SRC)/rtl/s-wchcon.ad[sb] $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/s-wchcnv.adb $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/s-wchstw__wasm.adb $(1)/adainclude/s-wchstw.adb
+#	cp -p $(RTS_SRC)/zfp/s-sssita.ad[sb] $(1)/adainclude/
+	cp -p $(GNAT_SRC)/libgnat/s-flocon__none.adb $(1)/adainclude/s-flocon.adb
+	cd $(1)/adalib && for f in $(COMPILABLE_WASM_SPECS); do \
 	  echo ">>> Compile $$f"; \
-	  $(COMPILE) ../adainclude/$$f || exit 1; \
+	  $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp ../adainclude/$$f || exit 1; \
 	done
-	cd $(WASMLIB) && for f in ../adainclude/*.adb; do \
+	cd $(1)/adalib && for f in ../adainclude/*.adb; do \
 	  echo "<<< Compile $$f"; \
-	  if [ $$f != '../adainclude/a-excach.adb' -a $$f != '../adainclude/s-dorepr.adb' ]; then $(COMPILE) $$f || exit 1; fi \
+	  if [ $$f != '../adainclude/a-excach.adb' -a $$f != '../adainclude/s-dorepr.adb' ]; then \
+	    $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp $$f || exit 1; \
+	  fi \
 	done
-	cd $(WASMLIB) && $(CHMOD) a-wx *.ali && \
+	cd $(1)/adalib && $(CHMOD) a-wx *.ali && \
 	  objs=""; \
 	  for f in *.o; do \
 	    if [ -s "$$f" ]; then \
@@ -338,5 +376,12 @@ wasm: build
 	    fi; \
 	  done; \
 	  $(AR) libgnat.a $$objs && $(LLVM_RANLIB) libgnat.a && $(RM) *.o
-	echo "adainclude" > $(WASMRUNTIME)/ada_source_path
-	echo "adalib" > $(WASMRUNTIME)/ada_object_path
+	echo "adainclude" > $(1)/ada_source_path
+	echo "adalib" > $(1)/ada_object_path
+endef
+
+wasm: build
+	$(call build-wasm-rts,$(WASMRUNTIME),tlsf)
+
+wasm-emcc: build
+	$(call build-wasm-rts,$(WASMRUNTIME_EMCC),emcc)

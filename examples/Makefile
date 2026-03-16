@@ -1,5 +1,6 @@
 EXAMPLE_DIRS = \
 	call_ada \
+	sdl3 \
 	toggle_hidden \
 	webgl_basic
 

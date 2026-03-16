@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>SDL3 Examples</title>
+        <style>
+            :root {
+                color-scheme: light;
+                font-family: sans-serif;
+                background: radial-gradient(
+                    circle at top,
+                    #f2efe7 0%,
+                    #ddd6c5 45%,
+                    #b7c1cb 100%
+                );
+                color: #172026;
+            }
+
+            body {
+                margin: 0;
+                min-height: 100vh;
+                display: grid;
+                place-items: center;
+            }
+
+            main {
+                width: min(44rem, calc(100vw - 3rem));
+                padding: 2rem;
+                border: 1px solid rgba(23, 32, 38, 0.16);
+                border-radius: 1.25rem;
+                background: rgba(255, 252, 246, 0.78);
+                box-shadow: 0 1.5rem 4rem rgba(23, 32, 38, 0.18);
+                backdrop-filter: blur(12px);
+            }
+
+            h1 {
+                margin-top: 0;
+                font-size: clamp(2rem, 4vw, 3rem);
+                line-height: 1;
+                letter-spacing: -0.04em;
+            }
+
+            p {
+                line-height: 1.5;
+            }
+
+            ul {
+                padding-left: 1.2rem;
+            }
+
+            a {
+                color: #0a5c78;
+                font-weight: 700;
+            }
+        </style>
+    </head>
+    <body>
+        <main>
+            <h1>SDL3 Examples</h1>
+            <p>
+                This directory groups SDL3 browser examples by topic and
+                language.
+            </p>
+            <ul>
+                <li><a href="basic/basic.html">Basic Ada</a></li>
+                <li><a href="basic_c/basic_c.html">Basic C</a></li>
+                <li><a href="image/image.html">Image</a></li>
+                <li><a href="ttf/ttf.html">TTF</a></li>
+            </ul>
+            <p>
+                The shared SDL3 web install is kept at the suite root. Build the
+                implemented examples from their own subdirectories.
+            </p>
+        </main>
+    </body>
+</html>

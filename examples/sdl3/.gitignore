@@ -1,0 +1,18 @@
+# SDL source trees, build directories, and install prefixes
+SDL-release-*/
+SDL3_image-*/
+SDL3_ttf-*/
+*.tar.gz
+sdl3-prefix/
+sdl3-image-prefix/
+sdl3-ttf-prefix/
+
+# Generated emscripten outputs in example subdirectories
+basic/*.js
+basic/*.html
+basic_c/*.js
+basic_c/*.html
+image/*.js
+image/*.html
+ttf/*.js
+ttf/*.html

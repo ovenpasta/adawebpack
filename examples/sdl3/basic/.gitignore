@@ -1,0 +1,6 @@
+.objs/
+basic.data
+basic.html
+basic.js
+basic.wasm
+*.map

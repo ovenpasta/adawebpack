@@ -69,8 +69,8 @@ package body System.Image_I is
       if V >= 0 then
          pragma Annotate (CodePeer, False_Positive, "test always false",
                           "V can be positive");
-         S (1) := ' ';
-         P := 1;
+         S (S'First) := ' ';
+         P := S'First;
 
       else
          P := 0;

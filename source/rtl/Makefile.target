@@ -65,6 +65,8 @@ s-atacco.adb \
 s-atacco.ads \
 s-casuti.adb \
 s-casuti.ads \
+s-cautns.adb \
+s-cautns.ads \
 s-dorepr.adb \
 s-dourea.adb \
 s-dourea.ads \
@@ -119,9 +121,6 @@ s-putima.ads \
 s-retsta.ads \
 s-secsta.adb \
 s-secsta.ads \
-s-spark.ads \
-s-spcuop.adb \
-s-spcuop.ads \
 s-spsufi.adb \
 s-spsufi.ads \
 s-stalib.adb \
@@ -142,8 +141,6 @@ s-valboo.adb \
 s-valboo.ads \
 s-valint.adb \
 s-valint.ads \
-s-vaispe.adb \
-s-vaispe.ads \
 s-vallfl.ads \
 s-valllu.ads \
 s-valrea.adb \
@@ -160,13 +157,6 @@ s-valuns.adb \
 s-valuns.ads \
 s-valuti.adb \
 s-valuti.ads \
-s-valspe.adb \
-s-valspe.ads \
-s-vauspe.adb \
-s-vauspe.ads \
-s-vs_uns.ads \
-s-vs_llu.ads \
-s-vs_int.ads \
 s-wchcnv.ads \
 s-wchstw.ads \
 s-wchwts.adb \
@@ -358,6 +348,14 @@ define build-wasm-rts
 	cp -p $(AWP_SRC)/rtl/s-wchstw__wasm.adb $(1)/adainclude/s-wchstw.adb
 #	cp -p $(RTS_SRC)/zfp/s-sssita.ad[sb] $(1)/adainclude/
 	cp -p $(GNAT_SRC)/libgnat/s-flocon__none.adb $(1)/adainclude/s-flocon.adb
+	cp -p $(RTS_SRC)/common/s-spark.ads $(1)/adainclude/
+	cp -p $(RTS_SRC)/common/s-spcuop.ad[sb] $(1)/adainclude/
+	cp -p $(RTS_SRC)/value/spec/s-vaispe.ad[sb] $(1)/adainclude/
+	cp -p $(RTS_SRC)/value/spec/s-valspe.ad[sb] $(1)/adainclude/
+	cp -p $(RTS_SRC)/value/spec/s-vauspe.ad[sb] $(1)/adainclude/
+	cp -p $(RTS_SRC)/value/spec/s-vs_int.ads $(1)/adainclude/
+	cp -p $(RTS_SRC)/value/spec/s-vs_uns.ads $(1)/adainclude/
+	cp -p $(RTS_SRC)/value/spec_ll/s-vs_llu.ads $(1)/adainclude/
 	cd $(1)/adalib && for f in $(COMPILABLE_WASM_SPECS); do \
 	  echo ">>> Compile $$f"; \
 	  $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp ../adainclude/$$f || exit 1; \
@@ -385,3 +383,24 @@ wasm: build
 
 wasm-emcc: build
 	$(call build-wasm-rts,$(WASMRUNTIME_EMCC),emcc)
+
+# CCG (C code generator) native runtime.
+# sdefault.adb expects the CCG RTS at lib/gnat-llvm/<target>/rts-ccg/
+# when CCG mode is active (CCG=1 env var or binary name starts with "c-").
+# This target builds the native Ada runtime at that path by reusing the
+# main Makefile's quicklib rule with the output directory overridden.
+CCGRUNTIME=$(pwd)/lib/gnat-llvm/$(llvm_target)/rts-ccg
+
+.PHONY: ccg
+ccg: build
+	$(RMDIR) $(CCGRUNTIME)
+	-$(MAKE) \
+	  RTS=$(CCGRUNTIME) \
+	  RTSDIR=$(CCGRUNTIME)/adainclude \
+	  RTSLIB=$(CCGRUNTIME)/adalib \
+	  RTSOBJ=$(CCGRUNTIME)/obj-static \
+	  LN_S="cp -p" quicklib
+	cp -p $(RTS)/target.atp $(CCGRUNTIME)/target.atp
+	echo "adainclude" > $(CCGRUNTIME)/ada_source_path
+	echo "adalib" > $(CCGRUNTIME)/ada_object_path
+	$(RMDIR) $(CCGRUNTIME)/obj-static

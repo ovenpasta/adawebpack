@@ -54,8 +54,8 @@ package body System.Image_U is
       P : out Natural)
    is
    begin
-      S (1) := ' ';
-      P := 1;
+      S (S'First) := ' ';
+      P := S'First;
       Set_Image_Unsigned (V, S, P);
    end Image_Unsigned;
 

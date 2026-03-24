@@ -25,6 +25,7 @@ ada.ads      \
 a-assert.adb \
 a-assert.ads \
 a-charac.ads \
+a-chlat1.ads \
 a-chzla1.ads \
 a-finali.adb \
 a-finali.ads \
@@ -35,6 +36,21 @@ a-nubinu.ads \
 a-numeri.ads \
 a-stream.adb \
 a-stream.ads \
+a-strbou.adb \
+a-strbou.ads \
+a-strfix.adb \
+a-strfix.ads \
+a-strmap.adb \
+a-strmap.ads \
+a-stmaco.ads \
+a-strsea.adb \
+a-strsea.ads \
+a-strsup.adb \
+a-strsup.ads \
+a-strunb.adb \
+a-strunb.ads \
+a-chahan.adb \
+a-chahan.ads \
 a-string.ads \
 a-sttebu.adb \
 a-sttebu.ads \
@@ -52,6 +68,9 @@ a-tags.adb   \
 a-tags.ads   \
 a-unccon.ads \
 a-uncdea.ads \
+gnat.ads     \
+g-comver.adb \
+g-comver.ads \
 i-c.adb      \
 i-c.ads      \
 i-cexten.ads \
@@ -62,7 +81,10 @@ s-addima.adb \
 s-addima.ads \
 s-assert.ads \
 s-atacco.adb \
+s-bitops.adb \
+s-bitops.ads \
 s-atacco.ads \
+s-atocou.ads \
 s-casuti.adb \
 s-casuti.ads \
 s-cautns.adb \
@@ -225,7 +247,9 @@ s-atocou.adb \
 
 COMPILABLE_WASM_SPECS= \
 ada.ads      \
+gnat.ads     \
 a-charac.ads \
+a-chlat1.ads \
 a-chzla1.ads \
 a-ioexce.ads \
 a-iteint.ads \
@@ -234,6 +258,7 @@ a-nllefu.ads \
 a-nubinu.ads \
 a-nuelfu.ads \
 a-numeri.ads \
+a-stmaco.ads \
 a-string.ads \
 a-unccon.ads \
 a-uncdea.ads \
@@ -347,6 +372,7 @@ define build-wasm-rts
 	cp -p $(AWP_SRC)/rtl/s-wchcnv.adb $(1)/adainclude/
 	cp -p $(AWP_SRC)/rtl/s-wchstw__wasm.adb $(1)/adainclude/s-wchstw.adb
 #	cp -p $(RTS_SRC)/zfp/s-sssita.ad[sb] $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/s-atocou__wasm.adb $(1)/adainclude/s-atocou.adb
 	cp -p $(GNAT_SRC)/libgnat/s-flocon__none.adb $(1)/adainclude/s-flocon.adb
 	cp -p $(RTS_SRC)/common/s-spark.ads $(1)/adainclude/
 	cp -p $(RTS_SRC)/common/s-spcuop.ad[sb] $(1)/adainclude/
@@ -356,6 +382,8 @@ define build-wasm-rts
 	cp -p $(RTS_SRC)/value/spec/s-vs_int.ads $(1)/adainclude/
 	cp -p $(RTS_SRC)/value/spec/s-vs_uns.ads $(1)/adainclude/
 	cp -p $(RTS_SRC)/value/spec_ll/s-vs_llu.ads $(1)/adainclude/
+	cd $(1)/adalib && echo ">>> Pre-compile a-strmap.adb" && \
+	  $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp ../adainclude/a-strmap.adb
 	cd $(1)/adalib && for f in $(COMPILABLE_WASM_SPECS); do \
 	  echo ">>> Compile $$f"; \
 	  $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp ../adainclude/$$f || exit 1; \

@@ -7,6 +7,7 @@ EM_CACHE ?= /tmp/emscripten-cache
 GPRBUILD ?= gprbuild
 LLVM_GCC ?= $(LLVM_BIN_DIR)/llvm-gcc
 GNATBIND ?= $(LLVM_BIN_DIR)/llvm-gnatbind
+LLVM_CONFIG ?= llvm-config
 LLVM_LIBRARY_PATH ?=
 ADA_RTS ?= $(LLVM_INTERFACE_DIR)/lib/gnat-llvm/wasm32/rts-wasm-emcc
 GPRBUILD_FLAGS ?= --target=llvm --RTS=$(ADA_RTS)

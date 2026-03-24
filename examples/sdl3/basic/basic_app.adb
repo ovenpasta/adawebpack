@@ -1,4 +1,6 @@
+with Basic_Build_Info;
 with Emscripten_Bindings;
+with GNAT.Compiler_Version;
 with Interfaces;
 with Interfaces.C;
 with Interfaces.C.Extensions;
@@ -35,23 +37,9 @@ package body Basic_App is
    function Is_True (Value : SDL3_Bindings.C_Bool) return Boolean is
      (Value /= Interfaces.C.Extensions.bool'Val (0));
 
+   package Compiler_Version is new GNAT.Compiler_Version;
+
    function Error_Message return String;
-   function Basic_Overlay_SDL_Text return Interfaces.C.Strings.Chars_Ptr
-     with Import => True,
-          Convention => C,
-          External_Name => "basic_overlay_sdl_text";
-   function Basic_Overlay_GNAT_Text return Interfaces.C.Strings.Chars_Ptr
-     with Import => True,
-          Convention => C,
-          External_Name => "basic_overlay_gnat_text";
-   function Basic_Overlay_LLVM_Text return Interfaces.C.Strings.Chars_Ptr
-     with Import => True,
-          Convention => C,
-          External_Name => "basic_overlay_llvm_text";
-   function Basic_Overlay_Title_Text return Interfaces.C.Strings.Chars_Ptr
-     with Import => True,
-          Convention => C,
-          External_Name => "basic_overlay_title_text";
 
    procedure Log (Message : String);
    function Render_Debug_Line
@@ -166,19 +154,36 @@ package body Basic_App is
    --------------------------
 
    function Render_Basic_Overlay return Boolean is
+      V     : constant SDL3_Bindings.Sint := SDL3_Bindings.SDL_GetVersion;
+      Major : constant Interfaces.C.int   := Interfaces.C.int (V) / 1_000_000;
+      Minor : constant Interfaces.C.int   := (Interfaces.C.int (V) / 1_000) mod 1_000;
+      Patch : constant Interfaces.C.int   := Interfaces.C.int (V) mod 1_000;
+      SDL_Str   : Interfaces.C.Strings.Chars_Ptr :=
+        Interfaces.C.Strings.New_String
+          ("SDL " & Image_No_Space (Major) & "."
+                  & Image_No_Space (Minor) & "."
+                  & Image_No_Space (Patch));
+      GNAT_Str  : Interfaces.C.Strings.Chars_Ptr :=
+        Interfaces.C.Strings.New_String
+          (Compiler_Version.Version & " via GNAT-LLVM");
+      LLVM_Str  : Interfaces.C.Strings.Chars_Ptr :=
+        Interfaces.C.Strings.New_String (Basic_Build_Info.LLVM_Line);
+      Title_Str : Interfaces.C.Strings.Chars_Ptr :=
+        Interfaces.C.Strings.New_String ("SDL debug text overlay");
+      Result : Boolean;
    begin
-      if not Is_True
-        (SDL3_Bindings.SDL_SetRenderDrawColor
-           (Renderer, 16#F6#, 16#F2#, 16#E8#, SDL3_Bindings.SDL_Alpha_Opaque))
-      then
-         return False;
-      end if;
-
-      return
-        Render_Debug_Line (40.0, Basic_Overlay_SDL_Text)
-        and then Render_Debug_Line (62.0, Basic_Overlay_GNAT_Text)
-        and then Render_Debug_Line (84.0, Basic_Overlay_LLVM_Text)
-        and then Render_Debug_Line (106.0, Basic_Overlay_Title_Text);
+      Result :=
+        Is_True (SDL3_Bindings.SDL_SetRenderDrawColor
+          (Renderer, 16#F6#, 16#F2#, 16#E8#, SDL3_Bindings.SDL_Alpha_Opaque))
+        and then Render_Debug_Line (40.0, SDL_Str)
+        and then Render_Debug_Line (62.0, GNAT_Str)
+        and then Render_Debug_Line (84.0, LLVM_Str)
+        and then Render_Debug_Line (106.0, Title_Str);
+      Interfaces.C.Strings.Free (SDL_Str);
+      Interfaces.C.Strings.Free (GNAT_Str);
+      Interfaces.C.Strings.Free (LLVM_Str);
+      Interfaces.C.Strings.Free (Title_Str);
+      return Result;
    end Render_Basic_Overlay;
 
    ---------------

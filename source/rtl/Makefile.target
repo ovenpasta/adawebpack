@@ -27,6 +27,9 @@ a-assert.ads \
 a-charac.ads \
 a-chlat1.ads \
 a-chzla1.ads \
+a-contai.ads \
+a-conhel.adb \
+a-conhel.ads \
 a-finali.adb \
 a-finali.ads \
 a-ioexce.ads \
@@ -258,6 +261,7 @@ a-nllefu.ads \
 a-nubinu.ads \
 a-nuelfu.ads \
 a-numeri.ads \
+a-contai.ads \
 a-stmaco.ads \
 a-string.ads \
 a-unccon.ads \

@@ -9,7 +9,8 @@
 --  WASM32 / Emscripten variant.                                            --
 --                                                                          --
 --  Clock uses clock_gettime (CLOCK_REALTIME) from Emscripten libc.         --
---  Timed_Delay is a no-op: WASM is single-threaded, cannot block.          --
+--  Timed_Delay uses nanosleep: a no-op without -sASYNCIFY, actual sleep    --
+--  when the application is linked with Emscripten's Asyncify support.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -52,9 +53,28 @@ package body System.OS_Primitives is
      (Time : Duration;
       Mode : Integer)
    is
-      pragma Unreferenced (Time, Mode);
+      Rel_Time : Duration;
+
+      function nanosleep
+        (rqtp : access C_Time.timespec;
+         rmtp : access C_Time.timespec) return int;
+      pragma Import (C, nanosleep, "nanosleep");
+
+      TS     : aliased C_Time.timespec;
+      Unused : int;
+      pragma Warnings (Off, Unused);
+
    begin
-      null;
+      if Mode = Relative then
+         Rel_Time := Time;
+      else
+         Rel_Time := Time - Clock;
+      end if;
+
+      if Rel_Time > 0.0 then
+         TS     := C_Time.To_Timespec (Rel_Time);
+         Unused := nanosleep (TS'Unchecked_Access, null);
+      end if;
    end Timed_Delay;
 
    ----------------

@@ -1,6 +1,6 @@
 # WASM runtime
 
-LLVM_RANLIB=llvm-ranlib
+LLVM_RANLIB?=llvm-ranlib
 # WASM_MALLOC selects the heap allocator for the WASM runtime:
 #
 #   tlsf  (default) - Ada's built-in TLSF allocator.  Ada exports "malloc",
@@ -30,6 +30,22 @@ a-chzla1.ads \
 a-contai.ads \
 a-conhel.adb \
 a-conhel.ads \
+a-cohata.ads \
+a-chtgop.ads \
+a-chtgke.ads \
+a-coprnu.adb \
+a-coprnu.ads \
+a-crbltr.ads \
+a-crbtgo.ads \
+a-crbtgk.adb \
+a-crbtgk.ads \
+a-rbtgso.ads \
+a-costso.adb \
+a-costso.ads \
+a-cgarso.adb \
+a-cgarso.ads \
+a-cgcaso.adb \
+a-cgcaso.ads \
 a-finali.adb \
 a-finali.ads \
 a-ioexce.ads \
@@ -262,6 +278,8 @@ a-nubinu.ads \
 a-nuelfu.ads \
 a-numeri.ads \
 a-contai.ads \
+a-cohata.ads \
+a-crbltr.ads \
 a-stmaco.ads \
 a-string.ads \
 a-unccon.ads \
@@ -377,6 +395,7 @@ define build-wasm-rts
 	cp -p $(AWP_SRC)/rtl/s-wchstw__wasm.adb $(1)/adainclude/s-wchstw.adb
 #	cp -p $(RTS_SRC)/zfp/s-sssita.ad[sb] $(1)/adainclude/
 	cp -p $(AWP_SRC)/rtl/s-atocou__wasm.adb $(1)/adainclude/s-atocou.adb
+	cp -p $(AWP_SRC)/rtl/a-crbtgo__wasm.adb $(1)/adainclude/a-crbtgo.adb
 	cp -p $(GNAT_SRC)/libgnat/s-flocon__none.adb $(1)/adainclude/s-flocon.adb
 	cp -p $(RTS_SRC)/common/s-spark.ads $(1)/adainclude/
 	cp -p $(RTS_SRC)/common/s-spcuop.ad[sb] $(1)/adainclude/
@@ -388,6 +407,8 @@ define build-wasm-rts
 	cp -p $(RTS_SRC)/value/spec_ll/s-vs_llu.ads $(1)/adainclude/
 	cd $(1)/adalib && echo ">>> Pre-compile a-strmap.adb" && \
 	  $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp ../adainclude/a-strmap.adb
+	cd $(1)/adalib && echo ">>> Pre-compile a-conhel.adb" && \
+	  $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp ../adainclude/a-conhel.adb
 	cd $(1)/adalib && for f in $(COMPILABLE_WASM_SPECS); do \
 	  echo ">>> Compile $$f"; \
 	  $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp ../adainclude/$$f || exit 1; \

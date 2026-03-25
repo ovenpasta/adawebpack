@@ -395,6 +395,18 @@ define build-wasm-rts
 	cp -p $(RTS_SRC)/mem/no-cheri/s-memmov.adb $(1)/adainclude/
 	if [ "$(2)" = "emcc" ]; then \
 	  cp -p $(AWP_SRC)/rtl/s-memory__wasm_emcc.adb $(1)/adainclude/s-memory.adb; \
+	  cp -p $(AWP_SRC)/rtl/system__wasm_emcc.ads $(1)/adainclude/system.ads; \
+	  cp -p $(GNAT_SRC)/libgnat/s-crtl.ads $(1)/adainclude/; \
+	  cp -p $(GNAT_SRC)/libgnat/s-crtl.adb $(1)/adainclude/; \
+	  cp -p $(GNAT_SRC)/libgnat/s-c_time.ads $(1)/adainclude/; \
+	  cp -p $(GNAT_SRC)/libgnat/s-c_time.adb $(1)/adainclude/; \
+	  cp -p $(GNAT_SRC)/libgnat/s-osprim.ads $(1)/adainclude/; \
+	  cp -p $(AWP_SRC)/rtl/s-oscons__wasm.ads $(1)/adainclude/s-oscons.ads; \
+	  cp -p $(AWP_SRC)/rtl/s-osprim__wasm_emcc.adb $(1)/adainclude/s-osprim.adb; \
+	  cp -p $(AWP_SRC)/rtl/s-os_lib__wasm.ads $(1)/adainclude/s-os_lib.ads; \
+	  cp -p $(AWP_SRC)/rtl/s-os_lib__wasm.adb $(1)/adainclude/s-os_lib.adb; \
+	  cp -p $(GNAT_SRC)/libgnat/a-calend.ads $(1)/adainclude/; \
+	  cp -p $(GNAT_SRC)/libgnat/a-calend.adb $(1)/adainclude/; \
 	else \
 	  cp -p $(AWP_SRC)/rtl/s-memory__wasm.adb $(1)/adainclude/s-memory.adb; \
 	  if [ "$(WASM_C_ALLOCATOR_EXPORTS)" = "no" ]; then \

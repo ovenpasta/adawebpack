@@ -34,16 +34,11 @@
 --     Publisher: The MIT Press (June 18, 1990)
 --     ISBN: 0262031418
 
---  WASM variant: "raise;" replaced with direct last-chance handler call.
---  No_Exception_Propagation forbids re-raise; aborting is the only option.
+--  WASM variant: "raise;" replaced via System.WASM_Abort.Abort_Program.
+with System.WASM_Abort; use System.WASM_Abort;
 with System; use type System.Address;
 
 package body Ada.Containers.Red_Black_Trees.Generic_Operations is
-
-   procedure Abort_Program (Message : System.Address; Line : Integer)
-     with Import, Convention => C,
-          External_Name => "__gnat_last_chance_handler", No_Return;
-   --  Direct import to avoid "with Ada.Exceptions" which violates Pure.
 
    pragma Warnings (Off, "variable ""Busy*"" is not referenced");
    pragma Warnings (Off, "variable ""Lock*"" is not referenced");
@@ -610,7 +605,6 @@ package body Ada.Containers.Red_Black_Trees.Generic_Operations is
    exception
       when others =>
          Delete_Tree (Target_Root);
-         --  No_Exception_Propagation: re-raise is not allowed; abort instead.
          Abort_Program (System.Null_Address, 0);
    end Generic_Copy_Tree;
 

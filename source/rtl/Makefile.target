@@ -31,7 +31,9 @@ a-contai.ads \
 a-conhel.adb \
 a-conhel.ads \
 a-cohata.ads \
+a-chtgop.adb \
 a-chtgop.ads \
+a-chtgke.adb \
 a-chtgke.ads \
 a-coprnu.adb \
 a-coprnu.ads \
@@ -46,6 +48,12 @@ a-cgarso.adb \
 a-cgarso.ads \
 a-cgcaso.adb \
 a-cgcaso.ads \
+a-convec.ads \
+a-cdlili.ads \
+a-cohama.ads \
+a-cohase.ads \
+a-coorma.ads \
+a-coorse.ads \
 a-finali.adb \
 a-finali.ads \
 a-ioexce.ads \
@@ -302,6 +310,7 @@ s-powlfl.ads \
 s-powllf.ads \
 s-retsta.ads \
 s-spark.ads \
+s-wasabo.ads \
 s-imad32.ads \
 s-imad64.ads \
 s-oslock.ads \
@@ -394,8 +403,16 @@ define build-wasm-rts
 	cp -p $(AWP_SRC)/rtl/s-wchcnv.adb $(1)/adainclude/
 	cp -p $(AWP_SRC)/rtl/s-wchstw__wasm.adb $(1)/adainclude/s-wchstw.adb
 #	cp -p $(RTS_SRC)/zfp/s-sssita.ad[sb] $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/s-wasabo.ads $(1)/adainclude/
 	cp -p $(AWP_SRC)/rtl/s-atocou__wasm.adb $(1)/adainclude/s-atocou.adb
 	cp -p $(AWP_SRC)/rtl/a-crbtgo__wasm.adb $(1)/adainclude/a-crbtgo.adb
+	cp -p $(AWP_SRC)/rtl/a-rbtgso__wasm.adb $(1)/adainclude/a-rbtgso.adb
+	cp -p $(AWP_SRC)/rtl/a-convec__wasm.adb $(1)/adainclude/a-convec.adb
+	cp -p $(AWP_SRC)/rtl/a-cdlili__wasm.adb $(1)/adainclude/a-cdlili.adb
+	cp -p $(AWP_SRC)/rtl/a-cohama__wasm.adb $(1)/adainclude/a-cohama.adb
+	cp -p $(AWP_SRC)/rtl/a-cohase__wasm.adb $(1)/adainclude/a-cohase.adb
+	cp -p $(AWP_SRC)/rtl/a-coorma__wasm.adb $(1)/adainclude/a-coorma.adb
+	cp -p $(AWP_SRC)/rtl/a-coorse__wasm.adb $(1)/adainclude/a-coorse.adb
 	cp -p $(GNAT_SRC)/libgnat/s-flocon__none.adb $(1)/adainclude/s-flocon.adb
 	cp -p $(RTS_SRC)/common/s-spark.ads $(1)/adainclude/
 	cp -p $(RTS_SRC)/common/s-spcuop.ad[sb] $(1)/adainclude/

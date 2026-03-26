@@ -250,6 +250,50 @@ You will also need `wasm-ld`, the Web asssembly linker. You will find this:
  * Additional runtime-side GCC 15 details are documented in
    [PORTING-GCC15.md](PORTING-GCC15.md).
 
+## Runtime variant comparison
+
+The two WASM runtimes share a common source base but differ in several
+user-visible features:
+
+| Feature | rts-wasm | rts-wasm-emcc |
+|---------|----------|---------------|
+| Allocator | Ada-owned TLSF (exports `malloc`/`free`/`realloc`) | Emscripten dlmalloc (Ada calls Emscripten's allocator) |
+| `Duration` size | 32-bit | 64-bit (nanosecond precision) |
+| `Ada.Calendar` | not available | available |
+| `System.OS_Primitives.Clock` | not available | available (`clock_gettime`) |
+| `delay` / `delay until` | not available | available (see note below) |
+| Requires Emscripten (`emcc`) | no | yes |
+
+### 32-bit Duration in rts-wasm
+
+`rts-wasm` uses a 32-bit `Duration` type with a maximum range of roughly
++/-497 days. `Ada.Calendar` requires 64-bit Duration internally (the
+calendar body uses `Unchecked_Conversion` between `Duration` and a 64-bit
+integer, which fails if they differ in size). This is why `Ada.Calendar`
+is not included in `rts-wasm`.
+
+If your application uses `delay` statements or `Ada.Calendar`, use
+`rts-wasm-emcc`.
+
+### Timed delay and Emscripten Asyncify
+
+In `rts-wasm-emcc`, `delay` and `delay until` call Emscripten's `nanosleep`.
+Without Asyncify, Emscripten's `nanosleep` busy-waits for the requested
+duration - the WASM module spins on the browser's main thread, making the
+page unresponsive for the full duration of the delay.
+
+To get proper timed delays that yield to the browser event loop, link with
+the Asyncify transformation:
+
+```
+emcc ... -sASYNCIFY
+```
+
+Asyncify rewrites the WASM binary to allow suspending and resuming execution.
+Per Emscripten's documentation, the overhead is typically around 50% in
+binary size when optimized (`-O3`). Applications that do not use `delay`
+can omit `-sASYNCIFY`.
+
 ## Usage with Docker
 
 It could be handy to use docker.

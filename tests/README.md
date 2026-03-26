@@ -77,12 +77,6 @@ the GNAT-LLVM trampoline-suppression fix for wasm32) and exercises each one:
 - `Ada.Containers.Doubly_Linked_Lists (Integer)`: Append, Prepend, Length, First/Last
 - `Ada.Containers.Ordered_Maps (Integer, Integer)`: Insert, Contains, Element, Delete
 
-**Backend note:** Generic container instantiation inside a procedure body requires
-the GNAT-LLVM wasm32 trampoline fix in `gnatllvm-subprograms.adb`. GNAT generates
-nested wrapper functions for tagged-type dispatch tables. On wasm32, every
-subprogram already carries an explicit activation-record parameter, so no
-`llvm.init.trampoline` / `llvm.clear_cache` is needed. Without the fix the compiler
-crashes with "LLVM ERROR: llvm.clear_cache is not supported on wasm".
 
 ### calendar_main
 

@@ -48,8 +48,6 @@ Not available in `rts-wasm` (standalone WASM without Emscripten).
 
 **`Ada.Containers`** packages are available in both runtimes.
 Tampering checks are disabled by default (compiled with `-gnatp`).
-Instantiating container packages inside a procedure body requires
-GNAT-LLVM built from the gcc-16 branch or later (trampoline fix for wasm32).
 
 **`delay` statements** (`delay D` and `delay until T`) work in
 `rts-wasm-emcc`. They call `nanosleep` via `System.OS_Primitives.Timed_Delay`.

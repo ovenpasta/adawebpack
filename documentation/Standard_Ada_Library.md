@@ -9,6 +9,9 @@ marked otherwise.
    * Characters
      * Wide_Wide_Latin_1
    * Containers
+   * Strings
+     * Fixed
+     * Maps
      * Doubly_Linked_Lists
      * Hashed_Maps
      * Hashed_Sets

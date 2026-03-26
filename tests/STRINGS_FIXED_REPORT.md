@@ -1,8 +1,14 @@
 # Ada.Strings.Fixed on wasm32
 
-## Summary
+**Status: RESOLVED.** `Ada.Strings.Fixed` compiles and links in both
+`rts-wasm` and `rts-wasm-emcc`. `strings_fixed_main` is now part of `make all`.
+The frontend crash described below no longer reproduces on GCC 16 / LLVM 21.
 
-`Ada.Strings.Fixed` is currently not usable from the `rts-wasm` flow when
+---
+
+## Historical investigation (no longer relevant)
+
+`Ada.Strings.Fixed` was previously not usable from the `rts-wasm` flow when
 compiled by `llvm-gcc` for `wasm32`.
 
 This is not a general GNAT issue and not a general GNAT-LLVM issue:

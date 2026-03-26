@@ -35,7 +35,7 @@ make delay_main.html
 - `record_by_value_main` - wasm32 C ABI struct pass/return test
 - `debug_text_signature_main` - ABI-shape probe for `SDL_RenderDebugText` call pattern
 - `interfaces_c_strings_main` - `Interfaces.C.Strings` bindings test
-- `strings_fixed_main` - experimental; not part of `make all`
+- `strings_fixed_main` - `Ada.Strings.Fixed.Trim`
 
 ### Runtime feature tests (rts-wasm-emcc)
 

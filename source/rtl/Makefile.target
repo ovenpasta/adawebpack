@@ -325,6 +325,7 @@ s-spark.ads \
 s-wasabo.ads \
 s-imad32.ads \
 s-imad64.ads \
+s-oscons.ads \
 s-oslock.ads \
 s-unstyp.ads \
 s-vallfl.ads \
@@ -407,6 +408,8 @@ define build-wasm-rts
 	  cp -p $(AWP_SRC)/rtl/s-os_lib__wasm.adb $(1)/adainclude/s-os_lib.adb; \
 	  cp -p $(GNAT_SRC)/libgnat/a-calend.ads $(1)/adainclude/; \
 	  cp -p $(GNAT_SRC)/libgnat/a-calend.adb $(1)/adainclude/; \
+	  cp -p $(RTS_SRC)/gnarl/sfp/s-reldel.ads $(1)/adainclude/; \
+	  cp -p $(AWP_SRC)/rtl/s-reldel__wasm_emcc.adb $(1)/adainclude/s-reldel.adb; \
 	else \
 	  cp -p $(AWP_SRC)/rtl/s-memory__wasm.adb $(1)/adainclude/s-memory.adb; \
 	  if [ "$(WASM_C_ALLOCATOR_EXPORTS)" = "no" ]; then \

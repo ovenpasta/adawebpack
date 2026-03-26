@@ -10,10 +10,12 @@ ADA_RTS ?= $(LLVM_INTERFACE_DIR)/lib/gnat-llvm/wasm32/rts-wasm-emcc
 ADA_RUNTIME_LIB = $(ADA_RTS)/adalib/libgnat.a
 GPRBUILD_FLAGS ?= --target=llvm --RTS=$(ADA_RTS)
 
-TARGETS := record_by_value_main debug_text_signature_main interfaces_c_strings_main
+TARGETS := record_by_value_main debug_text_signature_main interfaces_c_strings_main \
+           containers_main calendar_main
 EXPERIMENTAL_TARGETS := strings_fixed_main
+ASYNCIFY_TARGETS := delay_main
 
-all: $(TARGETS:%=%.html)
+all: $(TARGETS:%=%.html) $(ASYNCIFY_TARGETS:%=%.html)
 
 check-ada-tools:
 	@test -x "$(LLVM_BIN_DIR)/llvm-gcc" || { echo "Missing Ada compiler driver at $(LLVM_BIN_DIR)/llvm-gcc"; exit 1; }
@@ -51,7 +53,12 @@ interfaces_c_strings_main.html: .objs/interfaces_c_strings_check.o
 $(TARGETS:%=%.html) $(EXPERIMENTAL_TARGETS:%=%.html): %.html: .objs/%.built $(ADA_RUNTIME_LIB)
 	EM_CACHE=$(EM_CACHE) $(EMCC) -O2 -sALLOW_MEMORY_GROWTH=1 .objs/$*.o .objs/b__$*.o .objs/test_utils.o $(EXTRA_OBJS) $(ADA_RUNTIME_LIB) -o $@
 
+$(ASYNCIFY_TARGETS:%=%.html): %.html: .objs/%.built $(ADA_RUNTIME_LIB)
+	EM_CACHE=$(EM_CACHE) $(EMCC) -O2 -sALLOW_MEMORY_GROWTH=1 -sASYNCIFY \
+	  .objs/$*.o .objs/b__$*.o .objs/test_utils.o $(ADA_RUNTIME_LIB) -o $@
+
 clean:
 	rm -rf .objs \
 		$(TARGETS:%=%.html) $(TARGETS:%=%.js) $(TARGETS:%=%.wasm) \
-		$(EXPERIMENTAL_TARGETS:%=%.html) $(EXPERIMENTAL_TARGETS:%=%.js) $(EXPERIMENTAL_TARGETS:%=%.wasm)
+		$(EXPERIMENTAL_TARGETS:%=%.html) $(EXPERIMENTAL_TARGETS:%=%.js) $(EXPERIMENTAL_TARGETS:%=%.wasm) \
+		$(ASYNCIFY_TARGETS:%=%.html) $(ASYNCIFY_TARGETS:%=%.js) $(ASYNCIFY_TARGETS:%=%.wasm)

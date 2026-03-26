@@ -7,7 +7,10 @@ project Tests is
      ("record_by_value_main.adb",
       "debug_text_signature_main.adb",
       "interfaces_c_strings_main.adb",
-      "strings_fixed_main.adb");
+      "strings_fixed_main.adb",
+      "containers_main.adb",
+      "calendar_main.adb",
+      "delay_main.adb");
 
    package Compiler is
       case Use_GNATP is

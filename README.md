@@ -19,12 +19,12 @@ You will also need `wasm-ld`, the Web asssembly linker. You will find this:
  * Setup GNAT using [Alire](https://alire.ada.dev/).
 
  * Clone [GNAT-LLVM](https://github.com/ovenpasta/gnat-llvm). Use branch
-   `gcc-15`.
+   `gcc-16`.
    ```
-   git clone --branch=gcc-15 https://github.com/ovenpasta/gnat-llvm
+   git clone --branch=gcc-16 https://github.com/ovenpasta/gnat-llvm
    ```
 
-   This repository now expects a GCC 15-compatible GNAT-LLVM tree with the
+   This repository now expects a GCC 16-compatible GNAT-LLVM tree with the
    required target-conditional WebAssembly compiler support already present in
    the checked-out branch. No `patch -p1 < adawebpack_src/patches/*.patch`
    step is needed.
@@ -41,15 +41,14 @@ You will also need `wasm-ld`, the Web asssembly linker. You will find this:
    git clone -b gnat-fsf-15 https://github.com/ovenpasta/bb-runtimes gnat-llvm/llvm-interface/bb-runtimes
    ```
 
- * Clone [GCC](https://github.com/gcc-mirror/gcc) sources. Use a GCC 15 release branch or tag.
+ * Clone GCC sources and apply the GNAT-LLVM GCC 16 patch.
    ```
-   git clone --single-branch --branch=releases/gcc-15 https://github.com/gcc-mirror/gcc gnat-llvm/llvm-interface/gcc
-   git -C gnat-llvm/llvm-interface/gcc checkout releases/gcc-15.2.0
-   git -C gnat-llvm/llvm-interface/gcc apply ../patches/gcc-15-repinfo-accessors.patch
+   git clone https://github.com/gcc-mirror/gcc.git gnat-llvm/llvm-interface/gcc
+   git -C gnat-llvm/llvm-interface/gcc apply ../patches/gcc-16-repinfo-accessors.patch
    ```
 
    This is a small `Repinfo` accessor patch required by the current
-   `gnat-llvm` branch when building against upstream GCC 15 sources.
+   `gnat-llvm` branch when building against upstream GCC 16 sources.
 
  * Setup GNAT-LLVM development environment, see details in
    [GNAT-LLVM README](https://github.com/ovenpasta/gnat-llvm). Note, you need to use
@@ -76,7 +75,7 @@ You will also need `wasm-ld`, the Web asssembly linker. You will find this:
 
    ```
    cd gnat-llvm/llvm-interface
-   git clone --branch=gcc-15-wasm-rts https://github.com/ovenpasta/adawebpack.git adawebpack_src
+   git clone --branch=gcc-16-wasm-rts https://github.com/ovenpasta/adawebpack.git adawebpack_src
    mv Makefile.target Makefile.target.orig
    ln -s adawebpack_src/source/rtl/Makefile.target Makefile.target
    cd -

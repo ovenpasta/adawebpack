@@ -100,10 +100,9 @@ g-comver.adb \
 g-comver.ads \
 g-io.adb     \
 g-io.ads     \
-g-arrspl.adb \
-g-arrspl.ads \
-g-strspl.adb \
-g-strspl.ads \
+ g-arrspl.adb \
+ g-arrspl.ads \
+ g-strspl.ads \
 s-imgcha.adb \
 s-imgcha.ads \
 s-regpat.adb \
@@ -323,10 +322,9 @@ s-powllf.ads \
 s-retsta.ads \
 s-spark.ads \
 s-wasabo.ads \
-s-imad32.ads \
-s-imad64.ads \
-s-oscons.ads \
-s-oslock.ads \
+ s-imad32.ads \
+ s-imad64.ads \
+ s-oslock.ads \
 s-unstyp.ads \
 s-vallfl.ads \
 s-valllu.ads \
@@ -457,6 +455,10 @@ define build-wasm-rts
 	  echo ">>> Compile $$f"; \
 	  $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp ../adainclude/$$f || exit 1; \
 	done
+	if [ "$(2)" = "emcc" ]; then \
+	  cd $(1)/adalib && echo ">>> Compile s-oscons.ads"; \
+	  $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp ../adainclude/s-oscons.ads || exit 1; \
+	fi
 	cd $(1)/adalib && for f in ../adainclude/*.adb; do \
 	  echo "<<< Compile $$f"; \
 	  if [ $$f != '../adainclude/a-excach.adb' -a $$f != '../adainclude/s-dorepr.adb' ]; then \

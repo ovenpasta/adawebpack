@@ -293,6 +293,79 @@ Per Emscripten's documentation, the overhead is typically around 50% in
 binary size when optimized (`-O3`). Applications that do not use `delay`
 can omit `-sASYNCIFY`.
 
+## Runtime library features
+
+The following Ada standard library units are packaged in both `rts-wasm` and
+`rts-wasm-emcc`. They are always available without `--RTS=` tweaks.
+
+### Text I/O
+
+`Ada.Text_IO` is shipped as a stripped, ZFP-style variant:
+
+- `Put`, `Put_Line`, `New_Line`, `Put (Character)` write to the JS/Emscripten
+  console through `System.IO` (`__gnat_put_char` / `__gnat_put_string`).
+- `Get (Character)` is present for source compatibility but returns
+  `ASCII.NUL`. There is no blocking console read in the browser; wire a JS
+  shim if real input is needed.
+- No `File_Type`, no `Open` / `Create`, no file I/O. The full `Ada.Text_IO`
+  requires `System.File_IO`, `Interfaces.C_Streams`, and an exception
+  propagation model that is not available on WASM.
+
+`Ada.Integer_Text_IO` and `Ada.Float_Text_IO` are packaged as stripped
+generic instantiations:
+
+- String-based `Put (To, Item, ...)` and `Get (From, Item, Last)` are
+  available for both integer and floating-point types.
+- Console `Put (Item, ...)` writes through `System.IO`.
+- `Ada.Integer_Text_IO` uses a hand-rolled base converter so it does not
+  depend on `System.Val_Int` / `System.Val_LLI` scanner variants beyond
+  what the RTS already ships.
+- `Ada.Float_Text_IO.Put` goes through `System.Img_Real.Set_Image_Real`
+  (same as upstream). `Get` routes through `System.Val_LFlt`
+  (`Value_Long_Float`), i.e. the scanner precision is `Long_Float`
+  regardless of the actual `Num` type - this keeps the runtime from
+  needing the per-precision scanner packages (`s-valflt`, `s-valllf`,
+  `s-powten_*`).
+- The user-facing generic packages `Ada.Text_IO.Integer_IO` and
+  `Ada.Text_IO.Float_IO` are also exposed so you can instantiate them on
+  your own scalar types.
+
+Typical pattern:
+
+```ada
+with Ada.Text_IO;
+with Ada.Float_Text_IO;
+package FIO renames Ada.Float_Text_IO;
+Buf : String (1 .. 64);
+V   : Float := 3.14159;
+FIO.Put (Buf, V, Aft => 3, Exp => 0);
+Ada.Text_IO.Put_Line (Buf);
+```
+
+### Containers
+
+Both definite and indefinite container variants are packaged:
+
+- Definite: `Ada.Containers.Vectors`, `Doubly_Linked_Lists`, `Hashed_Maps`,
+  `Hashed_Sets`, `Ordered_Maps`, `Ordered_Sets`, `Multiway_Trees`.
+- Indefinite: `Indefinite_Vectors`, `Indefinite_Doubly_Linked_Lists`,
+  `Indefinite_Hashed_Maps`, `Indefinite_Hashed_Sets`,
+  `Indefinite_Ordered_Maps`, `Indefinite_Ordered_Sets`,
+  `Indefinite_Holders`, `Indefinite_Multiway_Trees`.
+
+The WASM variants of the container bodies replace bare `raise;` re-raises
+with a call to `System.WASM_Abort.Abort_Program`, since the WASM runtime
+does not support exception propagation. Non-error paths match upstream.
+
+### Strings
+
+- `Ada.Strings.Hash` is available, so container instantiations like
+  `Indefinite_Hashed_Maps (Key_Type => String, ...)` work without a
+  user-supplied hash function.
+- `Ada.Strings.Fixed` is intentionally not packaged in `rts-wasm` yet - its
+  `wasm32` compile path still hits a frontend assertion; see
+  `examples/tests/STRINGS_FIXED_REPORT.md`.
+
 ## Usage with Docker
 
 It could be handy to use docker.
@@ -331,6 +404,10 @@ It could be handy to use docker.
    chance handler
 
  - tasks and protected objects are not supported
+
+ - file-based `Ada.Text_IO` (`Open`, `Create`, `File_Type`, etc.) is not
+   supported - see the "Text I/O" subsection for the stripped, console-only
+   variant that is packaged
 
 ## License
 

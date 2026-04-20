@@ -54,6 +54,21 @@ a-cohama.ads \
 a-cohase.ads \
 a-coorma.ads \
 a-coorse.ads \
+a-coinve.ads \
+a-cidlli.ads \
+a-cihama.ads \
+a-cihase.ads \
+a-ciorma.ads \
+a-ciorse.ads \
+a-coinho.ads \
+a-cimutr.adb \
+a-cimutr.ads \
+a-comutr.adb \
+a-comutr.ads \
+a-strhas.adb \
+a-strhas.ads \
+a-inteio.ads \
+a-flteio.ads \
 a-finali.adb \
 a-finali.ads \
 a-ioexce.ads \
@@ -289,6 +304,8 @@ gnat.ads     \
 a-charac.ads \
 a-chlat1.ads \
 a-chzla1.ads \
+a-inteio.ads \
+a-flteio.ads \
 a-ioexce.ads \
 a-iteint.ads \
 a-nlelfu.ads \
@@ -438,6 +455,19 @@ define build-wasm-rts
 	cp -p $(AWP_SRC)/rtl/a-cohase__wasm.adb $(1)/adainclude/a-cohase.adb
 	cp -p $(AWP_SRC)/rtl/a-coorma__wasm.adb $(1)/adainclude/a-coorma.adb
 	cp -p $(AWP_SRC)/rtl/a-coorse__wasm.adb $(1)/adainclude/a-coorse.adb
+	cp -p $(AWP_SRC)/rtl/a-coinve__wasm.adb $(1)/adainclude/a-coinve.adb
+	cp -p $(AWP_SRC)/rtl/a-cidlli__wasm.adb $(1)/adainclude/a-cidlli.adb
+	cp -p $(AWP_SRC)/rtl/a-cihama__wasm.adb $(1)/adainclude/a-cihama.adb
+	cp -p $(AWP_SRC)/rtl/a-cihase__wasm.adb $(1)/adainclude/a-cihase.adb
+	cp -p $(AWP_SRC)/rtl/a-ciorma__wasm.adb $(1)/adainclude/a-ciorma.adb
+	cp -p $(AWP_SRC)/rtl/a-ciorse__wasm.adb $(1)/adainclude/a-ciorse.adb
+	cp -p $(AWP_SRC)/rtl/a-coinho__wasm.adb $(1)/adainclude/a-coinho.adb
+	cp -p $(AWP_SRC)/rtl/a-textio.ads       $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/a-textio.adb       $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/a-tiinio.ads       $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/a-tiinio.adb       $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/a-tiflio.ads       $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/a-tiflio.adb       $(1)/adainclude/
 	cp -p $(GNAT_SRC)/libgnat/s-flocon__none.adb $(1)/adainclude/s-flocon.adb
 	cp -p $(RTS_SRC)/common/s-spark.ads $(1)/adainclude/
 	cp -p $(RTS_SRC)/common/s-spcuop.ad[sb] $(1)/adainclude/

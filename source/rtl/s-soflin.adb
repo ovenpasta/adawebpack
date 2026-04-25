@@ -47,14 +47,14 @@ package body System.Soft_Links is
 --   --  Needed for Vx6Cert (Vx653mc) GOS cert and ravenscar-cert runtimes,
 --   --  VxMILS cert, ravenscar-cert and full runtimes, Vx 5 default runtime
 --
---   --------------------
---   -- Abort_Defer_NT --
---   --------------------
---
---   procedure Abort_Defer_NT is
---   begin
---      null;
---   end Abort_Defer_NT;
+   --------------------
+   -- Abort_Defer_NT --
+   --------------------
+
+   procedure Abort_Defer_NT is
+   begin
+      null;
+   end Abort_Defer_NT;
 --
 --   ----------------------
 --   -- Abort_Handler_NT --

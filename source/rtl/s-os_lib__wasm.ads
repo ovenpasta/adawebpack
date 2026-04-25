@@ -23,6 +23,14 @@ package System.OS_Lib is
    function To_Ada (Time : Long_Long_Integer) return OS_Time;
    pragma Inline (To_Ada);
 
+   function Errno return Integer;
+   pragma Import (C, Errno, "__get_errno");
+
+   function Errno_Message
+     (Err     : Integer := Errno;
+      Default : String  := "") return String;
+   --  Used by System.File_IO in the emcc RTS.
+
 private
    type OS_Time is range -(2 ** 63) .. +(2 ** 63 - 1);
    Invalid_Time : constant OS_Time := -1;

@@ -1,6 +1,7 @@
 # WASM runtime
 
 LLVM_RANLIB?=llvm-ranlib
+EMCC?=emcc
 # WASM_MALLOC selects the heap allocator for the WASM runtime:
 #
 #   tlsf  (default) - Ada's built-in TLSF allocator.  Ada exports "malloc",
@@ -462,12 +463,24 @@ define build-wasm-rts
 	cp -p $(AWP_SRC)/rtl/a-ciorma__wasm.adb $(1)/adainclude/a-ciorma.adb
 	cp -p $(AWP_SRC)/rtl/a-ciorse__wasm.adb $(1)/adainclude/a-ciorse.adb
 	cp -p $(AWP_SRC)/rtl/a-coinho__wasm.adb $(1)/adainclude/a-coinho.adb
-	cp -p $(AWP_SRC)/rtl/a-textio.ads       $(1)/adainclude/
-	cp -p $(AWP_SRC)/rtl/a-textio.adb       $(1)/adainclude/
-	cp -p $(AWP_SRC)/rtl/a-tiinio.ads       $(1)/adainclude/
-	cp -p $(AWP_SRC)/rtl/a-tiinio.adb       $(1)/adainclude/
-	cp -p $(AWP_SRC)/rtl/a-tiflio.ads       $(1)/adainclude/
-	cp -p $(AWP_SRC)/rtl/a-tiflio.adb       $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/a-tiinio.ads $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/a-tiinio.adb $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/a-tiflio.ads $(1)/adainclude/
+	cp -p $(AWP_SRC)/rtl/a-tiflio.adb $(1)/adainclude/
+	if [ "$(2)" = "emcc" ]; then \
+	  cp -p $(GNAT_SRC)/libgnat/i-cstrea.ads $(1)/adainclude/; \
+	  cp -p $(GNAT_SRC)/libgnat/i-cstrea.adb $(1)/adainclude/; \
+	  cp -p $(GNAT_SRC)/libgnat/s-ficobl.ads $(1)/adainclude/; \
+	  cp -p $(GNAT_SRC)/libgnat/s-fileio.ads $(1)/adainclude/; \
+	  cp -p $(AWP_SRC)/rtl/s-fileio__wasm_emcc.adb $(1)/adainclude/s-fileio.adb; \
+	  cp -p $(AWP_SRC)/rtl/a-textio__wasm_emcc.ads $(1)/adainclude/a-textio.ads; \
+	  cp -p $(AWP_SRC)/rtl/a-textio__wasm_emcc.adb $(1)/adainclude/a-textio.adb; \
+	  cp -p $(AWP_SRC)/rtl/a-tigeli__wasm_emcc.adb $(1)/adainclude/a-tigeli.adb; \
+	  cp -p $(AWP_SRC)/rtl/c/text_io_emcc_shim.c $(1)/adainclude/; \
+	else \
+	  cp -p $(AWP_SRC)/rtl/a-textio.ads $(1)/adainclude/; \
+	  cp -p $(AWP_SRC)/rtl/a-textio.adb $(1)/adainclude/; \
+	fi
 	cp -p $(GNAT_SRC)/libgnat/s-flocon__none.adb $(1)/adainclude/s-flocon.adb
 	cp -p $(RTS_SRC)/common/s-spark.ads $(1)/adainclude/
 	cp -p $(RTS_SRC)/common/s-spcuop.ad[sb] $(1)/adainclude/
@@ -488,13 +501,20 @@ define build-wasm-rts
 	if [ "$(2)" = "emcc" ]; then \
 	  cd $(1)/adalib && echo ">>> Compile s-oscons.ads"; \
 	  $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp ../adainclude/s-oscons.ads || exit 1; \
+	  cd $(1)/adalib && echo ">>> Compile s-ficobl.ads"; \
+	  $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp ../adainclude/s-ficobl.ads || exit 1; \
 	fi
 	cd $(1)/adalib && for f in ../adainclude/*.adb; do \
 	  echo "<<< Compile $$f"; \
-	  if [ $$f != '../adainclude/a-excach.adb' -a $$f != '../adainclude/s-dorepr.adb' ]; then \
+	  if [ $$f != '../adainclude/a-excach.adb' -a $$f != '../adainclude/s-dorepr.adb' -a $$f != '../adainclude/a-tigeli.adb' ]; then \
 	    $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp $$f || exit 1; \
 	  fi \
 	done
+	if [ "$(2)" = "emcc" ]; then \
+	  cd $(1)/adalib && echo ">>> Compile text_io_emcc_shim.c (emcc)" && \
+	  $(EMCC) -c -O2 ../adainclude/text_io_emcc_shim.c -o text_io_emcc_shim.o \
+	    || exit 1; \
+	fi
 	cd $(1)/adalib && $(CHMOD) a-wx *.ali && \
 	  objs=""; \
 	  for f in *.o; do \

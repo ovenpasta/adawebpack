@@ -16,7 +16,8 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Interfaces.C;
+with Interfaces.C;         use type Interfaces.C.size_t;
+with Interfaces.C.Strings;
 
 package body System.OS_Lib is
 
@@ -24,6 +25,34 @@ package body System.OS_Lib is
    begin
       return OS_Time (Time);
    end To_Ada;
+
+   function C_Strerror (Errnum : Interfaces.C.int)
+     return Interfaces.C.Strings.chars_ptr;
+   pragma Import (C, C_Strerror, "strerror");
+
+   function C_Strlen (S : Interfaces.C.Strings.chars_ptr)
+     return Interfaces.C.size_t;
+   pragma Import (C, C_Strlen, "strlen");
+
+   function Errno_Message
+     (Err     : Integer := Errno;
+      Default : String  := "") return String
+   is
+      Ptr : constant Interfaces.C.Strings.chars_ptr :=
+        C_Strerror (Interfaces.C.int (Err));
+   begin
+      if Interfaces.C.Strings."=" (Ptr, Interfaces.C.Strings.Null_Ptr)
+        or else C_Strlen (Ptr) = 0
+      then
+         if Default = "" then
+            return "errno =" & Integer'Image (Err);
+         else
+            return Default;
+         end if;
+      end if;
+
+      return Interfaces.C.Strings.Value (Ptr);
+   end Errno_Message;
 
    --  C struct tm for wasm32/Emscripten (all fields 4 bytes)
 

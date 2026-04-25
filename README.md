@@ -295,10 +295,17 @@ can omit `-sASYNCIFY`.
 
 ## Runtime library features
 
-The following Ada standard library units are packaged in both `rts-wasm` and
-`rts-wasm-emcc`. They are always available without `--RTS=` tweaks.
+The Ada standard library units below are packaged in both `rts-wasm` and
+`rts-wasm-emcc` and are available without `--RTS=` tweaks. Where the two
+runtimes diverge - notably for file-based Text I/O - the per-runtime
+behaviour is called out in the relevant subsection.
 
 ### Text I/O
+
+The two runtimes ship two different `Ada.Text_IO` surfaces. The integer and
+float Text_IO packages described below are the same in both.
+
+#### `rts-wasm` - stripped, console-only
 
 `Ada.Text_IO` is shipped as a stripped, ZFP-style variant:
 
@@ -307,9 +314,45 @@ The following Ada standard library units are packaged in both `rts-wasm` and
 - `Get (Character)` is present for source compatibility but returns
   `ASCII.NUL`. There is no blocking console read in the browser; wire a JS
   shim if real input is needed.
-- No `File_Type`, no `Open` / `Create`, no file I/O. The full `Ada.Text_IO`
-  requires `System.File_IO`, `Interfaces.C_Streams`, and an exception
-  propagation model that is not available on WASM.
+- No `File_Type`, no `Open` / `Create`, no file I/O. The standalone TLSF
+  runtime has no libc and no virtual filesystem to back file objects.
+
+#### `rts-wasm-emcc` - full upstream `Ada.Text_IO` over Emscripten libc
+
+The Emscripten variant ships the full upstream `Ada.Text_IO`:
+
+- `Create`, `Open`, `Close`, `Reset`, `Delete`, `Mode`, `Name`, `Form`.
+- `Put_Line (File, ...)`, `Get_Line (File, ...)`, `Put (File, ...)`, `Get
+  (File, ...)`, `New_Line (File)`, `Skip_Line (File)`, etc.
+- `Standard_Input` / `Standard_Output` / `Standard_Error` and the
+  `Current_Input` / `Current_Output` / `Current_Error` set.
+
+Files are backed by Emscripten's libc on top of MEMFS by default. To
+populate the virtual filesystem with real assets at link time, pass
+`--preload-file <host-path>` or `--embed-file <host-path>` to the final
+`emcc` link command. To persist between runs in the browser, mount IDBFS
+from JS before the Ada main runs. MEMFS contents are otherwise ephemeral
+and disappear when the WASM module is torn down.
+
+Behind the scenes the Emscripten runtime brings in upstream
+`System.File_IO`, `Interfaces.C_Streams`, `System.File_Control_Block`, and
+the standard `Get_Line` subunit. A small Emscripten-only C shim
+(`text_io_emcc_shim.c`) supplies the `__gnat_*` constants/wrappers that
+upstream normally pulls from `gcc/ada/sysdep.c` and `gcc/ada/cstreams.c`.
+Ada's `raise;` re-raise inside cleanup handlers is replaced with
+`System.WASM_Abort.Abort_Program` (same convention used elsewhere in the
+WASM RTS); the last-chance handler routes the exception message to
+`stderr` via `__gnat_put_exception` before trapping.
+
+What is *not* included even in `rts-wasm-emcc`:
+
+- `Ada.Streams.Stream_IO` (uses the same `s-fileio` backbone, but not
+  packaged here yet).
+- `Ada.Wide_Text_IO`, `Ada.Wide_Wide_Text_IO`,
+  `Ada.Text_IO.Editing` / `Unbounded_IO` / `Enumeration_IO`.
+- `Ada.Directories`.
+
+#### Integer / Float Text I/O (both runtimes)
 
 `Ada.Integer_Text_IO` and `Ada.Float_Text_IO` are packaged as stripped
 generic instantiations:
@@ -405,9 +448,10 @@ It could be handy to use docker.
 
  - tasks and protected objects are not supported
 
- - file-based `Ada.Text_IO` (`Open`, `Create`, `File_Type`, etc.) is not
-   supported - see the "Text I/O" subsection for the stripped, console-only
-   variant that is packaged
+ - file-based `Ada.Text_IO` (`Open`, `Create`, `File_Type`, etc.) is
+   available only in `rts-wasm-emcc` over Emscripten's MEMFS/NODEFS/IDBFS;
+   `rts-wasm` ships only the stripped, console-only variant. See the "Text
+   I/O" subsection for details.
 
 ## License
 

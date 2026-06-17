@@ -339,10 +339,6 @@ Behind the scenes the Emscripten runtime brings in upstream
 the standard `Get_Line` subunit. A small Emscripten-only C shim
 (`text_io_emcc_shim.c`) supplies the `__gnat_*` constants/wrappers that
 upstream normally pulls from `gcc/ada/sysdep.c` and `gcc/ada/cstreams.c`.
-Ada's `raise;` re-raise inside cleanup handlers is replaced with
-`System.WASM_Abort.Abort_Program` (same convention used elsewhere in the
-WASM RTS); the last-chance handler routes the exception message to
-`stderr` via `__gnat_put_exception` before trapping.
 
 What is *not* included even in `rts-wasm-emcc`:
 
@@ -396,9 +392,7 @@ Both definite and indefinite container variants are packaged:
   `Indefinite_Ordered_Maps`, `Indefinite_Ordered_Sets`,
   `Indefinite_Holders`, `Indefinite_Multiway_Trees`.
 
-The WASM variants of the container bodies replace bare `raise;` re-raises
-with a call to `System.WASM_Abort.Abort_Program`, since the WASM runtime
-does not support exception propagation. Non-error paths match upstream.
+The container bodies are the upstream sources, used unchanged.
 
 ### Strings
 

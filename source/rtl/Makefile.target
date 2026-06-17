@@ -448,21 +448,23 @@ define build-wasm-rts
 #	cp -p $(RTS_SRC)/zfp/s-sssita.ad[sb] $(1)/adainclude/
 	cp -p $(AWP_SRC)/rtl/s-wasabo.ads $(1)/adainclude/
 	cp -p $(AWP_SRC)/rtl/s-atocou__wasm.adb $(1)/adainclude/s-atocou.adb
-	cp -p $(AWP_SRC)/rtl/a-crbtgo__wasm.adb $(1)/adainclude/a-crbtgo.adb
-	cp -p $(AWP_SRC)/rtl/a-rbtgso__wasm.adb $(1)/adainclude/a-rbtgso.adb
-	cp -p $(AWP_SRC)/rtl/a-convec__wasm.adb $(1)/adainclude/a-convec.adb
-	cp -p $(AWP_SRC)/rtl/a-cdlili__wasm.adb $(1)/adainclude/a-cdlili.adb
-	cp -p $(AWP_SRC)/rtl/a-cohama__wasm.adb $(1)/adainclude/a-cohama.adb
-	cp -p $(AWP_SRC)/rtl/a-cohase__wasm.adb $(1)/adainclude/a-cohase.adb
-	cp -p $(AWP_SRC)/rtl/a-coorma__wasm.adb $(1)/adainclude/a-coorma.adb
-	cp -p $(AWP_SRC)/rtl/a-coorse__wasm.adb $(1)/adainclude/a-coorse.adb
-	cp -p $(AWP_SRC)/rtl/a-coinve__wasm.adb $(1)/adainclude/a-coinve.adb
-	cp -p $(AWP_SRC)/rtl/a-cidlli__wasm.adb $(1)/adainclude/a-cidlli.adb
-	cp -p $(AWP_SRC)/rtl/a-cihama__wasm.adb $(1)/adainclude/a-cihama.adb
-	cp -p $(AWP_SRC)/rtl/a-cihase__wasm.adb $(1)/adainclude/a-cihase.adb
-	cp -p $(AWP_SRC)/rtl/a-ciorma__wasm.adb $(1)/adainclude/a-ciorma.adb
-	cp -p $(AWP_SRC)/rtl/a-ciorse__wasm.adb $(1)/adainclude/a-ciorse.adb
-	cp -p $(AWP_SRC)/rtl/a-coinho__wasm.adb $(1)/adainclude/a-coinho.adb
+# Container bodies: upstream as-is. The reraise-under-No_Exception_Propagation
+# front-end patch makes the old __wasm reraise-swap forks unnecessary.
+	cp -p $(GNAT_SRC)/libgnat/a-crbtgo.adb $(1)/adainclude/a-crbtgo.adb
+	cp -p $(GNAT_SRC)/libgnat/a-rbtgso.adb $(1)/adainclude/a-rbtgso.adb
+	cp -p $(GNAT_SRC)/libgnat/a-convec.adb $(1)/adainclude/a-convec.adb
+	cp -p $(GNAT_SRC)/libgnat/a-cdlili.adb $(1)/adainclude/a-cdlili.adb
+	cp -p $(GNAT_SRC)/libgnat/a-cohama.adb $(1)/adainclude/a-cohama.adb
+	cp -p $(GNAT_SRC)/libgnat/a-cohase.adb $(1)/adainclude/a-cohase.adb
+	cp -p $(GNAT_SRC)/libgnat/a-coorma.adb $(1)/adainclude/a-coorma.adb
+	cp -p $(GNAT_SRC)/libgnat/a-coorse.adb $(1)/adainclude/a-coorse.adb
+	cp -p $(GNAT_SRC)/libgnat/a-coinve.adb $(1)/adainclude/a-coinve.adb
+	cp -p $(GNAT_SRC)/libgnat/a-cidlli.adb $(1)/adainclude/a-cidlli.adb
+	cp -p $(GNAT_SRC)/libgnat/a-cihama.adb $(1)/adainclude/a-cihama.adb
+	cp -p $(GNAT_SRC)/libgnat/a-cihase.adb $(1)/adainclude/a-cihase.adb
+	cp -p $(GNAT_SRC)/libgnat/a-ciorma.adb $(1)/adainclude/a-ciorma.adb
+	cp -p $(GNAT_SRC)/libgnat/a-ciorse.adb $(1)/adainclude/a-ciorse.adb
+	cp -p $(GNAT_SRC)/libgnat/a-coinho.adb $(1)/adainclude/a-coinho.adb
 	cp -p $(AWP_SRC)/rtl/a-tiinio.ads $(1)/adainclude/
 	cp -p $(AWP_SRC)/rtl/a-tiinio.adb $(1)/adainclude/
 	cp -p $(AWP_SRC)/rtl/a-tiflio.ads $(1)/adainclude/
@@ -472,7 +474,7 @@ define build-wasm-rts
 	  cp -p $(GNAT_SRC)/libgnat/i-cstrea.adb $(1)/adainclude/; \
 	  cp -p $(GNAT_SRC)/libgnat/s-ficobl.ads $(1)/adainclude/; \
 	  cp -p $(GNAT_SRC)/libgnat/s-fileio.ads $(1)/adainclude/; \
-	  cp -p $(AWP_SRC)/rtl/s-fileio__wasm_emcc.adb $(1)/adainclude/s-fileio.adb; \
+	  cp -p $(GNAT_SRC)/libgnat/s-fileio.adb $(1)/adainclude/s-fileio.adb; \
 	  cp -p $(AWP_SRC)/rtl/a-textio__wasm_emcc.ads $(1)/adainclude/a-textio.ads; \
 	  cp -p $(AWP_SRC)/rtl/a-textio__wasm_emcc.adb $(1)/adainclude/a-textio.adb; \
 	  cp -p $(AWP_SRC)/rtl/a-tigeli__wasm_emcc.adb $(1)/adainclude/a-tigeli.adb; \

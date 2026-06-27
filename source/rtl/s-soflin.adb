@@ -34,10 +34,14 @@
 pragma Style_Checks (Off);
 
 pragma Warnings (Off);
---  Disable warnings as System.Soft_Links.Initialize is not Preelaborate. It is
---  safe to with this unit as its elaboration routine will only be initializing
---  NT_TSD, which is part of this package spec.
---with System.Soft_Links.Initialize;
+--  With-ing System.Soft_Links.Initialize forces its elaboration, which
+--  allocates and SS_Init's the environment task's secondary stack
+--  (NT_TSD.Sec_Stack_Ptr). Without it that pointer stays null and every
+--  secondary stack allocation dereferences a null chunk. Warnings are
+--  disabled because System.Soft_Links.Initialize is not Preelaborate while
+--  this package is; the dependency is safe because the child's elaboration
+--  only writes NT_TSD, which lives in this package's spec.
+with System.Soft_Links.Initialize;
 pragma Warnings (On);
 
 package body System.Soft_Links is

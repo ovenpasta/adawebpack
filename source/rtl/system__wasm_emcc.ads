@@ -146,11 +146,11 @@ private
 
    Backend_Divide_Checks     : constant Boolean := False;
    Backend_Overflow_Checks   : constant Boolean := True;
-   Command_Line_Args         : constant Boolean := False;
+   Command_Line_Args         : constant Boolean := True;
    Configurable_Run_Time     : constant Boolean := True;
    Denorm                    : constant Boolean := True;
    Duration_32_Bits          : constant Boolean := False;
-   Exit_Status_Supported     : constant Boolean := False;
+   Exit_Status_Supported     : constant Boolean := True;
    Fractional_Fixed_Ops      : constant Boolean := False;
    Frontend_Layout           : constant Boolean := False;
    Machine_Overflows         : constant Boolean := False;

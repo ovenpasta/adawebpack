@@ -137,6 +137,12 @@ s-assert.ads \
 s-atacco.adb \
 s-bitops.adb \
 s-bitops.ads \
+s-boarop.ads \
+s-geveop.adb \
+s-geveop.ads \
+s-vector.ads \
+s-veboop.adb \
+s-veboop.ads \
 s-atacco.ads \
 s-atocou.ads \
 s-casuti.adb \
@@ -147,6 +153,8 @@ s-dorepr.adb \
 s-dourea.adb \
 s-dourea.ads \
 s-exnlfl.ads \
+s-exponn.adb \
+s-exponn.ads \
 s-exponr.adb \
 s-exponr.ads \
 s-fatflt.ads \
@@ -213,8 +221,12 @@ s-stratt.ads \
 s-strhas.adb \
 s-strhas.ads \
 s-vaenu8.ads \
+s-vaen16.ads \
+s-vaen32.ads \
 s-valboo.adb \
 s-valboo.ads \
+s-valcha.adb \
+s-valcha.ads \
 s-valint.adb \
 s-valint.ads \
 s-vallfl.ads \
@@ -238,7 +250,15 @@ s-wchstw.ads \
 s-wchwts.adb \
 s-wchwts.ads \
 s-unstyp.ads \
-unchconv.ads
+unchconv.ads \
+\
+a-crbtgo.adb a-rbtgso.adb a-convec.adb a-cdlili.adb \
+a-cohama.adb a-cohase.adb a-coorma.adb a-coorse.adb \
+a-coinve.adb a-cidlli.adb a-cihama.adb a-cihase.adb \
+a-ciorma.adb a-ciorse.adb a-coinho.adb
+# Trailing a-c*.adb entries: container bodies pulled from libgnat as-is.
+# The reraise-under-No_Exception_Propagation front-end patch makes the
+# old __wasm reraise-swap forks unnecessary.
 
 
 # not ported to GNAT CE 2021 \
@@ -340,6 +360,8 @@ s-powllf.ads \
 s-retsta.ads \
 s-spark.ads \
 s-wasabo.ads \
+s-boarop.ads \
+s-vector.ads \
  s-imad32.ads \
  s-imad64.ads \
  s-oslock.ads \
@@ -347,6 +369,8 @@ s-unstyp.ads \
 s-vallfl.ads \
 s-valllu.ads \
 s-vaenu8.ads \
+s-vaen16.ads \
+s-vaen32.ads \
 s-vs_int.ads \
 s-vs_llu.ads \
 s-vs_uns.ads \
@@ -365,6 +389,110 @@ COMPILE+=--target=wasm32 -gnateT=../target.atp
 AWP_SRC=adawebpack_src/source
 RTS_SRC=rts-sources
 
+# Host-facing units for the emcc RTS (upstream libgnat sources), in dependency
+# order. Backed at link time by adaint.c + argv.c on Emscripten libc/MEMFS.
+# Provides the file system (Ada.Directories), command line, environment
+# variables, and stream I/O surfaces of the standard library.
+# The .ad[sb] glob picks up spec-only units (s-filatt, s-vafi64) too.
+EMCC_HOST_UNITS= \
+  s-os_lib s-string s-arit64 s-aridou s-valuef s-vafi64 \
+  a-catizo a-calfor s-filatt s-regexp a-dirval a-dhfina a-direct \
+  s-commun a-ststio a-comlin a-envvar a-stunha
+
+# Numeric-formatting support (upstream libgnat) for the full Integer_IO and
+# Float_IO of the emcc RTS, i.e. the image/value aux packages behind the
+# File_Type-based Put/Get. With these the emcc RTS uses the upstream
+# a-tiinio / a-tiflio bodies instead of the file-less standalone forks.
+# s-valflt / s-valllf are spec-only (the .ad[sb] glob copies just the spec).
+EMCC_NUM_IO_UNITS= \
+  a-tiinau a-tiflau \
+  s-imgbiu s-imgllb s-imglli s-imgllw s-imgwiu s-imageb s-imagew \
+  s-imagef s-imfi64 \
+  s-vallli s-valflt s-valllf s-exnflt s-exnllf s-exnlli
+
+# Upstream libgnat units pulled in by the emcc RTS only. Both spec and body
+# copied verbatim. a-tiinio / a-tiflio appear here AND in AWP_RTL_BOTH_UNITS:
+# the emcc copy overrides the stripped rtl/ versions so the full File_Type
+# Integer_IO / Float_IO bodies are used.
+EMCC_LIBGNAT_UNITS = \
+  s-crtl s-c_time a-calend i-cstrea s-fileio \
+  a-tigeau a-tienau a-tienio a-titest \
+  a-nuflra s-ransee a-tiinio a-tiflio
+
+# Spec-only libgnat units for the emcc RTS:
+#   s-osprim: body is forked (s-osprim__wasm_emcc.adb)
+#   s-ficobl: only the spec is needed by the emcc Text_IO chain
+EMCC_LIBGNAT_SPEC_UNITS = s-osprim s-ficobl
+
+# Low-level C support files at the GNAT_SRC root (not under libgnat/),
+# compiled with emcc and linked into the emcc RTS.
+EMCC_GNAT_C_FILES = adaint.c adaint.h runtime.h argv.c exit.c
+
+# --- list-driven RTS file copying ---------------------------------------
+#
+# Naming convention for forked sources in $(AWP_SRC)/rtl/:
+#   <unit>__wasm.ad[sb]      -> installed as <unit>.ad[sb] in BOTH runtimes
+#   <unit>__wasm_emcc.ad[sb] -> installed as <unit>.ad[sb] in rts-wasm-emcc only
+#                               (overrides any __wasm variant)
+#   <unit>.ad[sb] (no suffix) -> copied verbatim; runtime membership is
+#                               declared by the lists below, not by the name.
+#
+# Helper macros (single-line so they compose inside shell if/else blocks):
+#   $(call cp-suffixed,DEST,SRCDIR,SUFFIX,UNITS)
+#     For each U in UNITS, copy SRCDIR/U__SUFFIX.{ads,adb} (whichever exist)
+#     to DEST/adainclude/U.{ads,adb}.
+#   $(call cp-units,DEST,SRCDIR,UNITS)
+#     For each U in UNITS, copy SRCDIR/U.{ads,adb} (whichever exist) verbatim
+#     into DEST/adainclude/.
+cp-suffixed = for u in $(4); do for ext in ads adb; do s=$(2)/$${u}__$(3).$$ext; [ -f $$s ] && cp -p $$s $(1)/adainclude/$${u}.$$ext; done; done; true
+cp-units    = for u in $(3); do for ext in ads adb; do s=$(2)/$$u.$$ext;        [ -f $$s ] && cp -p $$s $(1)/adainclude/;             done; done; true
+cp-specs    = for u in $(3); do                       s=$(2)/$$u.ads;                                            cp -p $$s $(1)/adainclude/; done
+
+# adawebpack_src/source/rtl/ - __wasm forks installed in BOTH runtimes.
+AWP_WASM_UNITS = \
+  a-elchha s-atocou s-finpri s-imagei s-imageu s-io \
+  s-stposu s-wchstw
+
+# adawebpack_src/source/rtl/ - no-suffix files copied verbatim into BOTH.
+# (system.ads here is the tlsf default; the emcc branch overrides it via
+# system__wasm_emcc.ads. a-tiinio/a-tiflio likewise get overridden by the
+# upstream libgnat bodies in the emcc branch.)
+AWP_RTL_BOTH_UNITS = \
+  a-except a-tiflio a-tiinio s-builti s-init s-parame \
+  s-soflin s-soliin s-wasabo s-wchcnv s-wchcon system
+
+# adawebpack_src/source/rtl/ - no-suffix files copied into rts-wasm (tlsf) ONLY.
+# (a-textio here is the stripped console-only variant; emcc gets the full
+# Text_IO via a-textio__wasm_emcc.ad[sb].)
+AWP_RTL_TLSF_ONLY_UNITS = a-textio
+
+# adawebpack_src/source/rtl/ - __wasm_emcc forks installed in rts-wasm-emcc ONLY.
+# a-envvar.adb: forked body whose Value copies the env bytes with a plain Ada
+# array assignment (lowered via the llvm.memcpy intrinsic) rather than
+# System.CRTL.strncpy. CRTL declares strncpy/memcpy as void, but emcc libc
+# returns char*/void*; under wasm that void-vs-pointer mismatch makes wasm-ld
+# bind the explicit call to an unreachable stub, so a non-empty
+# Ada.Environment_Variables.Value traps. The fork references no libc symbol.
+# s-soliin (in AWP_RTL_BOTH_UNITS): System.Soft_Links.Initialize. s-soflin.adb
+# withs it so its elaboration SS_Init's the environment task secondary stack
+# (NT_TSD.Sec_Stack_Ptr). The forked body drops the upstream Jmpbuf_Address
+# assignment since the WASM TSD omits that field (No_Exception_Propagation).
+AWP_WASM_EMCC_UNITS = \
+  a-envvar a-textio a-tigeli s-osprim s-reldel system
+
+# adawebpack_src/source/rtl/ - __wasm forks installed in rts-wasm-emcc ONLY.
+# (s-oscons and s-rannum use the __wasm suffix but are only with-d by
+# emcc-side units, so the tlsf RTS has no need for them.)
+AWP_WASM_EMCC_ONLY_UNITS = s-oscons s-rannum
+
+# rts-sources/ - units grouped by subdir, all shared by BOTH runtimes.
+RTS_MATH_UNITS       = a-ngelfu a-nlelfu a-nuelfu s-gcmain s-libdou s-libm \
+                       s-libpre s-libsin s-lidosq s-lisisq
+RTS_MEM_UNITS        = s-memcom s-memset
+RTS_COMMON_UNITS     = s-spark s-spcuop
+RTS_VAL_SPEC_UNITS   = s-vaispe s-valspe s-vauspe s-vs_int s-vs_uns
+RTS_VAL_SPECLL_UNITS = s-vs_llu
+
 WASMRUNTIME=lib/gnat-llvm/wasm32/rts-wasm
 WASMRUNTIME_EMCC=lib/gnat-llvm/wasm32/rts-wasm-emcc
 
@@ -379,55 +507,44 @@ define build-wasm-rts
 	for f in $(COMMON_WASM_SRCS); do \
 	  cp -p $(GNAT_SRC)/libgnat/$$f $(1)/adainclude; \
 	done
-	cp -p $(AWP_SRC)/rtl/a-elchha__wasm.adb $(1)/adainclude/a-elchha.adb
-	cp -p $(RTS_SRC)/light/exceptions/a-elchha.ads $(1)/adainclude/
-	cp -p $(AWP_SRC)/rtl/a-except.ad[sb] $(1)/adainclude/
-	cp -p $(AWP_SRC)/rtl/s-imagei__wasm.adb $(1)/adainclude/s-imagei.adb
-	cp -p $(AWP_SRC)/rtl/s-imageu__wasm.adb $(1)/adainclude/s-imageu.adb
-#	cp -p $(GNAT_SRC)/hie/i-c__hie.ads $(1)/adainclude/i-c.ads
-	cp -p $(RTS_SRC)/math/a-ngelfu.ad[sb] $(1)/adainclude/
-	cp -p $(RTS_SRC)/math/a-nlelfu.ads $(1)/adainclude/
-	cp -p $(RTS_SRC)/math/a-nuelfu.ads $(1)/adainclude/
-	cp -p $(AWP_SRC)/rtl/system.ads $(1)/adainclude/
-	cp -p $(RTS_SRC)/light/s-assert.adb $(1)/adainclude/
-	cp -p $(AWP_SRC)/rtl/s-builti.ad[sb] $(1)/adainclude
-	cp -p $(AWP_SRC)/rtl/s-finpri__wasm.adb $(1)/adainclude/s-finpri.adb
-	cp -p $(GNAT_SRC)/libgnat/s-oslock__dummy.ads $(1)/adainclude/s-oslock.ads
-	cp -p $(RTS_SRC)/math/s-gcmain.ad[sb] $(1)/adainclude/
-	cp -p $(RTS_SRC)/full/s-init.ads $(1)/adainclude/
-	cp -p $(AWP_SRC)/rtl/s-init.adb $(1)/adainclude/
-	cp -p $(AWP_SRC)/rtl/s-io__wasm.adb $(1)/adainclude/s-io.adb
+	# AWP_SRC/rtl/ - shared between both runtimes
+	$(call cp-units,$(1),$(AWP_SRC)/rtl,$(AWP_RTL_BOTH_UNITS))
+	$(call cp-suffixed,$(1),$(AWP_SRC)/rtl,wasm,$(AWP_WASM_UNITS))
+	# RTS_SRC subdirs - shared between both runtimes
+	$(call cp-units,$(1),$(RTS_SRC)/math,$(RTS_MATH_UNITS))
 	cp -p $(RTS_SRC)/math/harddp/s-lidosq.adb $(1)/adainclude/
-	cp -p $(RTS_SRC)/math/s-lidosq.ads $(1)/adainclude/
-	cp -p $(RTS_SRC)/math/s-libdou.ad[sb] $(1)/adainclude/
-	cp -p $(RTS_SRC)/math/s-libm.ad[sb] $(1)/adainclude/
-	cp -p $(RTS_SRC)/math/s-libpre.ads $(1)/adainclude/
-	cp -p $(RTS_SRC)/math/s-libsin.ad[sb] $(1)/adainclude/
 	cp -p $(RTS_SRC)/math/hardsp/s-lisisq.adb $(1)/adainclude/
-	cp -p $(RTS_SRC)/math/s-lisisq.ads $(1)/adainclude/
-	cp -p $(RTS_SRC)/mem/s-memcom.ad[sb] $(1)/adainclude/
+	$(call cp-units,$(1),$(RTS_SRC)/mem,$(RTS_MEM_UNITS))
 	cp -p $(RTS_SRC)/mem/s-memcop.ads $(1)/adainclude/
-	cp -p $(RTS_SRC)/mem/no-cheri/s-memcop.adb $(1)/adainclude/
 	cp -p $(RTS_SRC)/mem/s-memmov.ads $(1)/adainclude/
+	cp -p $(RTS_SRC)/mem/no-cheri/s-memcop.adb $(1)/adainclude/
 	cp -p $(RTS_SRC)/mem/no-cheri/s-memmov.adb $(1)/adainclude/
+	cp -p $(RTS_SRC)/mem/no-cheri/s-memtyp.ads $(1)/adainclude/
+	$(call cp-units,$(1),$(RTS_SRC)/common,$(RTS_COMMON_UNITS))
+	$(call cp-units,$(1),$(RTS_SRC)/value/spec,$(RTS_VAL_SPEC_UNITS))
+	$(call cp-units,$(1),$(RTS_SRC)/value/spec_ll,$(RTS_VAL_SPECLL_UNITS))
+	cp -p $(RTS_SRC)/light/exceptions/a-elchha.ads $(1)/adainclude/
+	cp -p $(RTS_SRC)/light/s-assert.adb $(1)/adainclude/
+	cp -p $(RTS_SRC)/full/s-init.ads $(1)/adainclude/
+	# Upstream GNAT_SRC one-offs with renames
+	cp -p $(GNAT_SRC)/libgnat/s-oslock__dummy.ads $(1)/adainclude/s-oslock.ads
+	cp -p $(GNAT_SRC)/libgnat/s-flocon__none.adb  $(1)/adainclude/s-flocon.adb
+	# Per-variant overrides and additions
 	if [ "$(2)" = "emcc" ]; then \
+	  for u in $(EMCC_HOST_UNITS) $(EMCC_NUM_IO_UNITS); do \
+	    cp -p $(GNAT_SRC)/libgnat/$$u.ad[sb] $(1)/adainclude/ || exit 1; \
+	  done; \
 	  cp -p $(AWP_SRC)/rtl/s-memory__wasm_emcc.adb $(1)/adainclude/s-memory.adb; \
-	  cp -p $(AWP_SRC)/rtl/system__wasm_emcc.ads $(1)/adainclude/system.ads; \
-	  cp -p $(GNAT_SRC)/libgnat/s-crtl.ads $(1)/adainclude/; \
-	  cp -p $(GNAT_SRC)/libgnat/s-crtl.adb $(1)/adainclude/; \
-	  cp -p $(GNAT_SRC)/libgnat/s-c_time.ads $(1)/adainclude/; \
-	  cp -p $(GNAT_SRC)/libgnat/s-c_time.adb $(1)/adainclude/; \
-	  cp -p $(GNAT_SRC)/libgnat/s-osprim.ads $(1)/adainclude/; \
-	  cp -p $(AWP_SRC)/rtl/s-oscons__wasm.ads $(1)/adainclude/s-oscons.ads; \
-	  cp -p $(AWP_SRC)/rtl/s-osprim__wasm_emcc.adb $(1)/adainclude/s-osprim.adb; \
-	  cp -p $(AWP_SRC)/rtl/s-os_lib__wasm.ads $(1)/adainclude/s-os_lib.ads; \
-	  cp -p $(AWP_SRC)/rtl/s-os_lib__wasm.adb $(1)/adainclude/s-os_lib.adb; \
-	  cp -p $(GNAT_SRC)/libgnat/a-calend.ads $(1)/adainclude/; \
-	  cp -p $(GNAT_SRC)/libgnat/a-calend.adb $(1)/adainclude/; \
-	  cp -p $(RTS_SRC)/gnarl/sfp/s-reldel.ads $(1)/adainclude/; \
-	  cp -p $(AWP_SRC)/rtl/s-reldel__wasm_emcc.adb $(1)/adainclude/s-reldel.adb; \
+	  $(call cp-suffixed,$(1),$(AWP_SRC)/rtl,wasm_emcc,$(AWP_WASM_EMCC_UNITS)); \
+	  $(call cp-suffixed,$(1),$(AWP_SRC)/rtl,wasm,$(AWP_WASM_EMCC_ONLY_UNITS)); \
+	  $(call cp-units,$(1),$(GNAT_SRC)/libgnat,$(EMCC_LIBGNAT_UNITS)); \
+	  $(call cp-specs,$(1),$(GNAT_SRC)/libgnat,$(EMCC_LIBGNAT_SPEC_UNITS)); \
+	  for f in $(EMCC_GNAT_C_FILES); do cp -p $(GNAT_SRC)/$$f $(1)/adainclude/ || exit 1; done; \
+	  cp -p $(RTS_SRC)/gnarl/sfp/s-reldel.ads    $(1)/adainclude/; \
+	  cp -p $(AWP_SRC)/rtl/c/text_io_emcc_shim.c $(1)/adainclude/; \
 	else \
 	  cp -p $(AWP_SRC)/rtl/s-memory__wasm.adb $(1)/adainclude/s-memory.adb; \
+	  $(call cp-units,$(1),$(AWP_SRC)/rtl,$(AWP_RTL_TLSF_ONLY_UNITS)); \
 	  if [ "$(WASM_C_ALLOCATOR_EXPORTS)" = "no" ]; then \
 	    sed -i \
 	      -e 's/"malloc"/"__gnat_c_malloc"/' \
@@ -436,62 +553,6 @@ define build-wasm-rts
 	      $(1)/adainclude/s-memory.adb; \
 	  fi; \
 	fi
-	cp -p $(RTS_SRC)/mem/s-memset.ad[sb] $(1)/adainclude/
-	cp -p $(RTS_SRC)/mem/no-cheri/s-memtyp.ads $(1)/adainclude/
-	cp -p $(AWP_SRC)/rtl/s-parame.ads $(1)/adainclude/
-	cp -p $(AWP_SRC)/rtl/s-soflin.adb $(1)/adainclude/
-	cp -p $(AWP_SRC)/rtl/s-soflin.ads $(1)/adainclude/
-	cp -p $(AWP_SRC)/rtl/s-stposu__wasm.adb $(1)/adainclude/s-stposu.adb
-	cp -p $(AWP_SRC)/rtl/s-wchcon.ad[sb] $(1)/adainclude/
-	cp -p $(AWP_SRC)/rtl/s-wchcnv.adb $(1)/adainclude/
-	cp -p $(AWP_SRC)/rtl/s-wchstw__wasm.adb $(1)/adainclude/s-wchstw.adb
-#	cp -p $(RTS_SRC)/zfp/s-sssita.ad[sb] $(1)/adainclude/
-	cp -p $(AWP_SRC)/rtl/s-wasabo.ads $(1)/adainclude/
-	cp -p $(AWP_SRC)/rtl/s-atocou__wasm.adb $(1)/adainclude/s-atocou.adb
-# Container bodies: upstream as-is. The reraise-under-No_Exception_Propagation
-# front-end patch makes the old __wasm reraise-swap forks unnecessary.
-	cp -p $(GNAT_SRC)/libgnat/a-crbtgo.adb $(1)/adainclude/a-crbtgo.adb
-	cp -p $(GNAT_SRC)/libgnat/a-rbtgso.adb $(1)/adainclude/a-rbtgso.adb
-	cp -p $(GNAT_SRC)/libgnat/a-convec.adb $(1)/adainclude/a-convec.adb
-	cp -p $(GNAT_SRC)/libgnat/a-cdlili.adb $(1)/adainclude/a-cdlili.adb
-	cp -p $(GNAT_SRC)/libgnat/a-cohama.adb $(1)/adainclude/a-cohama.adb
-	cp -p $(GNAT_SRC)/libgnat/a-cohase.adb $(1)/adainclude/a-cohase.adb
-	cp -p $(GNAT_SRC)/libgnat/a-coorma.adb $(1)/adainclude/a-coorma.adb
-	cp -p $(GNAT_SRC)/libgnat/a-coorse.adb $(1)/adainclude/a-coorse.adb
-	cp -p $(GNAT_SRC)/libgnat/a-coinve.adb $(1)/adainclude/a-coinve.adb
-	cp -p $(GNAT_SRC)/libgnat/a-cidlli.adb $(1)/adainclude/a-cidlli.adb
-	cp -p $(GNAT_SRC)/libgnat/a-cihama.adb $(1)/adainclude/a-cihama.adb
-	cp -p $(GNAT_SRC)/libgnat/a-cihase.adb $(1)/adainclude/a-cihase.adb
-	cp -p $(GNAT_SRC)/libgnat/a-ciorma.adb $(1)/adainclude/a-ciorma.adb
-	cp -p $(GNAT_SRC)/libgnat/a-ciorse.adb $(1)/adainclude/a-ciorse.adb
-	cp -p $(GNAT_SRC)/libgnat/a-coinho.adb $(1)/adainclude/a-coinho.adb
-	cp -p $(AWP_SRC)/rtl/a-tiinio.ads $(1)/adainclude/
-	cp -p $(AWP_SRC)/rtl/a-tiinio.adb $(1)/adainclude/
-	cp -p $(AWP_SRC)/rtl/a-tiflio.ads $(1)/adainclude/
-	cp -p $(AWP_SRC)/rtl/a-tiflio.adb $(1)/adainclude/
-	if [ "$(2)" = "emcc" ]; then \
-	  cp -p $(GNAT_SRC)/libgnat/i-cstrea.ads $(1)/adainclude/; \
-	  cp -p $(GNAT_SRC)/libgnat/i-cstrea.adb $(1)/adainclude/; \
-	  cp -p $(GNAT_SRC)/libgnat/s-ficobl.ads $(1)/adainclude/; \
-	  cp -p $(GNAT_SRC)/libgnat/s-fileio.ads $(1)/adainclude/; \
-	  cp -p $(GNAT_SRC)/libgnat/s-fileio.adb $(1)/adainclude/s-fileio.adb; \
-	  cp -p $(AWP_SRC)/rtl/a-textio__wasm_emcc.ads $(1)/adainclude/a-textio.ads; \
-	  cp -p $(AWP_SRC)/rtl/a-textio__wasm_emcc.adb $(1)/adainclude/a-textio.adb; \
-	  cp -p $(AWP_SRC)/rtl/a-tigeli__wasm_emcc.adb $(1)/adainclude/a-tigeli.adb; \
-	  cp -p $(AWP_SRC)/rtl/c/text_io_emcc_shim.c $(1)/adainclude/; \
-	else \
-	  cp -p $(AWP_SRC)/rtl/a-textio.ads $(1)/adainclude/; \
-	  cp -p $(AWP_SRC)/rtl/a-textio.adb $(1)/adainclude/; \
-	fi
-	cp -p $(GNAT_SRC)/libgnat/s-flocon__none.adb $(1)/adainclude/s-flocon.adb
-	cp -p $(RTS_SRC)/common/s-spark.ads $(1)/adainclude/
-	cp -p $(RTS_SRC)/common/s-spcuop.ad[sb] $(1)/adainclude/
-	cp -p $(RTS_SRC)/value/spec/s-vaispe.ad[sb] $(1)/adainclude/
-	cp -p $(RTS_SRC)/value/spec/s-valspe.ad[sb] $(1)/adainclude/
-	cp -p $(RTS_SRC)/value/spec/s-vauspe.ad[sb] $(1)/adainclude/
-	cp -p $(RTS_SRC)/value/spec/s-vs_int.ads $(1)/adainclude/
-	cp -p $(RTS_SRC)/value/spec/s-vs_uns.ads $(1)/adainclude/
-	cp -p $(RTS_SRC)/value/spec_ll/s-vs_llu.ads $(1)/adainclude/
 	cd $(1)/adalib && echo ">>> Pre-compile a-strmap.adb" && \
 	  $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp ../adainclude/a-strmap.adb
 	cd $(1)/adalib && echo ">>> Pre-compile a-conhel.adb" && \
@@ -501,10 +562,26 @@ define build-wasm-rts
 	  $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp ../adainclude/$$f || exit 1; \
 	done
 	if [ "$(2)" = "emcc" ]; then \
-	  cd $(1)/adalib && echo ">>> Compile s-oscons.ads"; \
-	  $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp ../adainclude/s-oscons.ads || exit 1; \
-	  cd $(1)/adalib && echo ">>> Compile s-ficobl.ads"; \
-	  $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp ../adainclude/s-ficobl.ads || exit 1; \
+	  cd $(1)/adalib && \
+	  echo ">>> Compile s-oscons.ads" && \
+	  $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp ../adainclude/s-oscons.ads && \
+	  echo ">>> Compile s-ficobl.ads" && \
+	  $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp ../adainclude/s-ficobl.ads && \
+	  echo ">>> Compile s-vafi64.ads" && \
+	  $(COMPILE) ../adainclude/s-vafi64.ads && \
+	  echo ">>> Compile s-filatt.ads" && \
+	  $(COMPILE) ../adainclude/s-filatt.ads && \
+	  echo ">>> Compile s-valflt.ads" && \
+	  $(COMPILE) ../adainclude/s-valflt.ads && \
+	  echo ">>> Compile s-valllf.ads" && \
+	  $(COMPILE) ../adainclude/s-valllf.ads && \
+	  echo ">>> Compile s-exnflt.ads" && \
+	  $(COMPILE) ../adainclude/s-exnflt.ads && \
+	  echo ">>> Compile s-exnlli.ads" && \
+	  $(COMPILE) ../adainclude/s-exnlli.ads && \
+	  echo ">>> Compile s-imfi64.ads" && \
+	  $(COMPILE) ../adainclude/s-imfi64.ads \
+	    || exit 1; \
 	fi
 	cd $(1)/adalib && for f in ../adainclude/*.adb; do \
 	  echo "<<< Compile $$f"; \
@@ -513,8 +590,18 @@ define build-wasm-rts
 	  fi \
 	done
 	if [ "$(2)" = "emcc" ]; then \
-	  cd $(1)/adalib && echo ">>> Compile text_io_emcc_shim.c (emcc)" && \
-	  $(EMCC) -c -O2 ../adainclude/text_io_emcc_shim.c -o text_io_emcc_shim.o \
+	  cd $(1)/adalib && \
+	  echo ">>> Compile text_io_emcc_shim.c (emcc)" && \
+	  $(EMCC) -c -O2 ../adainclude/text_io_emcc_shim.c -o text_io_emcc_shim.o && \
+	  echo ">>> Compile adaint.c (emcc)" && \
+	  $(EMCC) -c -O2 -DIN_RTS -DSTANDALONE -I../adainclude \
+	    ../adainclude/adaint.c -o adaint.o && \
+	  echo ">>> Compile argv.c (emcc)" && \
+	  $(EMCC) -c -O2 -DIN_RTS -DSTANDALONE -I../adainclude \
+	    ../adainclude/argv.c -o argv.o && \
+	  echo ">>> Compile exit.c (emcc)" && \
+	  $(EMCC) -c -O2 -DIN_RTS -DSTANDALONE -I../adainclude \
+	    ../adainclude/exit.c -o exit.o \
 	    || exit 1; \
 	fi
 	cd $(1)/adalib && $(CHMOD) a-wx *.ali && \

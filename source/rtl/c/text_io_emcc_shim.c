@@ -48,20 +48,7 @@ int __gnat_feof   (FILE *s) { return feof   (s); }
 int __gnat_ferror (FILE *s) { return ferror (s); }
 int __gnat_fileno (FILE *s) { return fileno (s); }
 
-/* ---- file existence / regularity checks ---- */
-
-int __gnat_file_exists (const char *name)
-{
-  return access (name, F_OK) == 0 ? 1 : 0;
-}
-
-int __gnat_is_regular_file_fd (int fd)
-{
-  struct stat st;
-  if (fstat (fd, &st) != 0)
-    return 0;
-  return S_ISREG (st.st_mode) ? 1 : 0;
-}
+/* ---- file regularity / type checks not provided by adaint.c ---- */
 
 int __gnat_is_fifo (int fd)
 {
@@ -87,13 +74,7 @@ void __gnat_set_mode        (int fd, int mode) { (void) fd; (void) mode; }
  * append "b"/"t" to fopen mode strings. POSIX never needs this. */
 const char __gnat_text_translation_required = 0;
 
-/* ---- path length / full path ---- */
-
-#ifdef PATH_MAX
-const int __gnat_max_path_len = PATH_MAX;
-#else
-const int __gnat_max_path_len = 1024;
-#endif
+/* ---- full path (not provided by adaint.c) ---- */
 
 void __gnat_full_name (const char *name, char *buffer)
 {
@@ -101,60 +82,87 @@ void __gnat_full_name (const char *name, char *buffer)
     strcpy (buffer, name);
 }
 
-/* ---- temp-name / case sensitivity ---- */
-
-void __gnat_tmp_name (char *buf)
-{
-  /* Deliberately simple: produce a unique-ish /tmp path. Callers use
-   * fopen, so collisions just retry. tmpnam is deprecated in glibc but
-   * fine under Emscripten's MEMFS. */
-  static unsigned long counter = 0;
-  counter++;
-  snprintf (buf, 256, "/tmp/gnat-%lu-%lu", (unsigned long) getpid (), counter);
-}
-
-int __gnat_get_file_names_case_sensitive (void) { return 1; }
-
 /* ---- errno accessors (System.OS_Lib.Errno / Set_Errno) ---- */
 
 int  __get_errno (void)        { return errno; }
 void __set_errno (int value)   { errno = value; }
 
-/* ---- fopen / unlink / open wrappers (encoding parameter ignored) ---- */
+/* ---- AdaWebPack console exports consumed by System.IO (s-io__wasm.adb) ----
+ * The standalone rts-wasm resolves these from the JS loader; under Emscripten
+ * we route them straight to stdout. */
 
-FILE *__gnat_fopen (const char *filename, const char *mode, int encoding)
+void __gnat_put_char (char c) { fputc (c, stdout); }
+
+void __gnat_put_string (const char *s, unsigned size)
+{
+  if (size > 0)
+    fwrite (s, 1, (size_t) size, stdout);
+}
+
+void __gnat_put_int (int x) { fprintf (stdout, "%d", x); }
+
+/* ---- 64-bit stream positioning (cstreams.c) for Ada.Streams.Stream_IO ---- */
+
+long long __gnat_ftell64 (FILE *stream)
+{
+  return (long long) ftello (stream);
+}
+
+int __gnat_fseek64 (FILE *stream, long long offset, int origin)
+{
+  if ((off_t) offset == offset)
+    return fseeko (stream, (off_t) offset, origin);
+  errno = EINVAL;
+  return -1;
+}
+
+/* ---- Get_Immediate (sysdep.c) ---- */
+
+void getc_immediate (FILE *stream, int *ch, int *end_of_file)
+{
+  int c = getc (stream);
+  if (c == EOF)
+    {
+      *end_of_file = 1;
+      *ch = 0;
+    }
+  else
+    {
+      *end_of_file = 0;
+      *ch = c;
+    }
+}
+
+/* ---- directory / environment helpers (mkdir.c, env.c) ---- */
+
+int __gnat_mkdir (char *dir_name, int encoding)
 {
   (void) encoding;
-  return fopen (filename, mode);
+  return mkdir (dir_name, S_IRWXU | S_IRWXG | S_IRWXO);
 }
 
-FILE *__gnat_freopen (const char *filename, const char *mode,
-                      FILE *stream, int encoding)
+void __gnat_getenv (char *name, int *len, char **value)
 {
-  (void) encoding;
-  return freopen (filename, mode, stream);
+  *value = getenv (name);
+  *len = (*value == NULL) ? 0 : (int) strlen (*value);
 }
 
-int __gnat_unlink (const char *filename, int encoding)
+void __gnat_setenv (char *name, char *value)
 {
-  (void) encoding;
-  return unlink (filename);
+  setenv (name, value, 1);
 }
 
-int __gnat_rename (const char *from, const char *to, int encoding)
-{
-  (void) encoding;
-  return rename (from, to);
-}
+/* __gnat_set_exit_status and gnat_exit_status come from the real upstream
+ * gcc/ada/exit.c, compiled into the runtime alongside adaint.c / argv.c. */
 
-int __gnat_open (const char *filename, int oflag)
-{
-  return open (filename, oflag);
-}
+/* ---- local time-zone offset (sysdep.c); Emscripten reports UTC ---- */
 
-int __gnat_fputwc (int c, FILE *stream)
+void __gnat_localtime_tzoff (const long long *timer,
+                             const int *is_historic, long *off)
 {
-  return fputwc ((wchar_t) c, stream);
+  (void) timer;
+  (void) is_historic;
+  *off = 0;
 }
 
 /* ---- last-chance unhandled-exception text output (a-elchha.adb) ---- */

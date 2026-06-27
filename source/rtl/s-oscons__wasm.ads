@@ -26,4 +26,16 @@ package System.OS_Constants with Pure is
    CLOCK_REALTIME  : constant := 0;
    CLOCK_MONOTONIC : constant := 1;
 
+   --  Size of the C "struct file_attributes" (adaint.h) for the wasm32 ABI:
+   --  int + 7 unsigned char (+ padding) + OS_Time(int64) + __int64 = 32 bytes.
+   --  Needed by System.File_Attributes for Ada.Directories.
+   SIZEOF_struct_file_attributes : constant := 32;
+
+   --  Emscripten musl "struct dirent" size for wasm32 (d_name at offset 19,
+   --  d_name[256] => 275, padded to 280). Read-buffer size for __gnat_readdir.
+   SIZEOF_struct_dirent_alloc : constant := 280;
+
+   --  errno value for "No such file or directory" (musl).
+   ENOENT : constant := 2;
+
 end System.OS_Constants;

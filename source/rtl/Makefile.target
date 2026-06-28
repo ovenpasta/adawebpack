@@ -2,6 +2,15 @@
 
 LLVM_RANLIB?=llvm-ranlib
 EMCC?=emcc
+# C compiler for the STANDALONE (tlsf) native-EH runtime: a wasm32-targeting
+# clang.  Emscripten supplies its own libc/libunwind, but the standalone tlsf
+# RTS links -nostdlib, so its C support files (raise-gcc.c + the vendored
+# _Unwind_* layer) are compiled here against header declarations only; any libc
+# references become wasm imports (or are shimmed in wasm_eh_unwind.c).
+WASM_CC?=clang
+# Sysroot providing only C header declarations (stdint.h, unwind.h, ...).
+# Defaults to the Emscripten sysroot if present.
+WASM_CC_SYSROOT?=$(HOME)/.cache/emscripten/sysroot
 # WASM_MALLOC selects the heap allocator for the WASM runtime:
 #
 #   tlsf  (default) - Ada's built-in TLSF allocator.  Ada exports "malloc",
@@ -424,6 +433,20 @@ EMCC_LIBGNAT_UNITS = \
 #   s-ficobl: only the spec is needed by the emcc Text_IO chain
 EMCC_LIBGNAT_SPEC_UNITS = s-osprim s-ficobl
 
+# Full GNAT exception-propagation runtime, copied from GNAT_SRC/libgnat for the
+# EH-enabled emcc RTS (see the "eh" branch of build-wasm-rts).  These OVERRIDE
+# the stub a-except / forked s-soflin / forked a-elchha used by the
+# No_Exception_Propagation build.  All from one tree (GNAT_SRC) so the
+# personality C ABI (e.g. __gnat_setup_current_excep) matches exactly.  Subunit
+# bodies (a-exexpr/a-exextr/a-exexda/a-excach/a-exstat) are compiled with their
+# parent a-except, so they are excluded from the standalone .adb loop.
+# (s-excmac has no plain source - it is the EH_MECHANISM=-gcc variant
+# s-excmac__gcc, copied explicitly in the overlay below.)
+EMCC_EH_LIBGNAT_UNITS = \
+  a-except a-exexpr a-exextr a-exexda a-excach a-exstat \
+  s-except s-exctab s-excdeb s-soflin s-stache \
+  s-traent s-traceb s-trasym a-exctra s-addima a-elchha
+
 # Low-level C support files at the GNAT_SRC root (not under libgnat/),
 # compiled with emcc and linked into the emcc RTS.
 EMCC_GNAT_C_FILES = adaint.c adaint.h runtime.h argv.c exit.c
@@ -495,11 +518,15 @@ RTS_VAL_SPECLL_UNITS = s-vs_llu
 
 WASMRUNTIME=lib/gnat-llvm/wasm32/rts-wasm
 WASMRUNTIME_EMCC=lib/gnat-llvm/wasm32/rts-wasm-emcc
+WASMRUNTIME_EMCC_EH=lib/gnat-llvm/wasm32/rts-wasm-emcc-eh
+WASMRUNTIME_EH=lib/gnat-llvm/wasm32/rts-wasm-eh
 
-# build-wasm-rts RTS_DIR MALLOC_VARIANT
+# build-wasm-rts RTS_DIR MALLOC_VARIANT [EH]
 # Populate and compile one WASM runtime tree.
 # $(1) = destination runtime dir (e.g. lib/gnat-llvm/wasm32/rts-wasm)
 # $(2) = malloc variant: "tlsf" or "emcc"
+# $(3) = "eh" to build the native WebAssembly EH variant (emcc only).  Empty
+#        for the existing builds, which are then byte-for-byte unchanged.
 define build-wasm-rts
 	$(RMDIR) $(1)/adainclude $(1)/adalib
 	$(MKDIR) $(1)/adainclude $(1)/adalib
@@ -553,6 +580,29 @@ define build-wasm-rts
 	      $(1)/adainclude/s-memory.adb; \
 	  fi; \
 	fi
+	# Native WebAssembly EH overlay: full propagation runtime + back-end-ZCX
+	# system.ads, overriding the stub a-except / forked s-soflin / forked
+	# a-elchha.  The Directories cluster (a-direct/a-dirval/a-dhfina) is now
+	# included: its deeper nested-funclet unwind case is fixed (a handler body
+	# ending in a return parents its end-handler cleanup within the catchpad).
+	if [ "$(3)" = "eh" ]; then \
+	  $(call cp-units,$(1),$(GNAT_SRC)/libgnat,$(EMCC_EH_LIBGNAT_UNITS)); \
+	  cp -p $(GNAT_SRC)/libgnat/s-excmac__gcc.ads $(1)/adainclude/s-excmac.ads; \
+	  cp -p $(GNAT_SRC)/libgnat/s-excmac__gcc.adb $(1)/adainclude/s-excmac.adb; \
+	  if [ "$(2)" = "emcc" ]; then \
+	    cp -p $(AWP_SRC)/rtl/system__wasm_emcc_eh.ads $(1)/adainclude/system.ads; \
+	  else \
+	    cp -p $(AWP_SRC)/rtl/system__wasm_eh.ads $(1)/adainclude/system.ads; \
+	    cp -p $(AWP_SRC)/rtl/c/wasm_eh_unwind.c $(1)/adainclude/; \
+	    cp -p $(GNAT_SRC)/runtime.h $(1)/adainclude/; \
+	  fi; \
+	  cp -p $(GNAT_SRC)/raise-gcc.c $(1)/adainclude/; \
+	  cp -p $(GNAT_SRC)/raise.h     $(1)/adainclude/; \
+	  cp -p $(GNAT_SRC)/../tsystem.h $(1)/adainclude/; \
+	  cp -p $(RTS_SRC)/full/unwind-pe.h $(1)/adainclude/; \
+	  cp -p $(RTS_SRC)/full/tconfig.h   $(1)/adainclude/; \
+	  cp -p $(AWP_SRC)/rtl/c/wasm_eh_support.c $(1)/adainclude/; \
+	fi
 	cd $(1)/adalib && echo ">>> Pre-compile a-strmap.adb" && \
 	  $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp ../adainclude/a-strmap.adb
 	cd $(1)/adalib && echo ">>> Pre-compile a-conhel.adb" && \
@@ -585,9 +635,11 @@ define build-wasm-rts
 	fi
 	cd $(1)/adalib && for f in ../adainclude/*.adb; do \
 	  echo "<<< Compile $$f"; \
-	  if [ $$f != '../adainclude/a-excach.adb' -a $$f != '../adainclude/s-dorepr.adb' -a $$f != '../adainclude/a-tigeli.adb' ]; then \
-	    $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp $$f || exit 1; \
-	  fi \
+	  case $$(basename $$f) in \
+	    a-excach.adb|s-dorepr.adb|a-tigeli.adb) ;; \
+	    a-exexpr.adb|a-exexda.adb|a-exstat.adb|a-exextr.adb) ;; \
+	    *) $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp $$f || exit 1;; \
+	  esac \
 	done
 	if [ "$(2)" = "emcc" ]; then \
 	  cd $(1)/adalib && \
@@ -602,6 +654,32 @@ define build-wasm-rts
 	  echo ">>> Compile exit.c (emcc)" && \
 	  $(EMCC) -c -O2 -DIN_RTS -DSTANDALONE -I../adainclude \
 	    ../adainclude/exit.c -o exit.o \
+	    || exit 1; \
+	fi
+	if [ "$(3)" = "eh" ] && [ "$(2)" = "emcc" ]; then \
+	  cd $(1)/adalib && \
+	  echo ">>> Compile raise-gcc.c (emcc, wasm EH personality)" && \
+	  $(EMCC) -c -O2 -DIN_RTS -DSTANDALONE -I../adainclude \
+	    ../adainclude/raise-gcc.c -o raise-gcc.o && \
+	  echo ">>> Compile wasm_eh_support.c (emcc)" && \
+	  $(EMCC) -c -O2 -I../adainclude \
+	    ../adainclude/wasm_eh_support.c -o wasm_eh_support.o \
+	    || exit 1; \
+	fi
+	# Standalone (tlsf) native-EH C support: compiled with a wasm32 clang.
+	# raise-gcc.c + wasm_eh_support.c (shared) + wasm_eh_unwind.c (the
+	# _Unwind_* personality-call layer emcc would otherwise supply).  -nostdlib:
+	# unresolved libc references become wasm imports.
+	if [ "$(3)" = "eh" ] && [ "$(2)" != "emcc" ]; then \
+	  cd $(1)/adalib && \
+	  WCC="$(WASM_CC) --target=wasm32 -fwasm-exceptions -O2 -nostdlib \
+	    --sysroot=$(WASM_CC_SYSROOT) -DIN_RTS -DSTANDALONE -I../adainclude" && \
+	  echo ">>> Compile raise-gcc.c (wasm clang, EH personality)" && \
+	  $$WCC -c ../adainclude/raise-gcc.c -o raise-gcc.o && \
+	  echo ">>> Compile wasm_eh_support.c (wasm clang)" && \
+	  $$WCC -c ../adainclude/wasm_eh_support.c -o wasm_eh_support.o && \
+	  echo ">>> Compile wasm_eh_unwind.c (wasm clang)" && \
+	  $$WCC -c ../adainclude/wasm_eh_unwind.c -o wasm_eh_unwind.o \
 	    || exit 1; \
 	fi
 	cd $(1)/adalib && $(CHMOD) a-wx *.ali && \
@@ -621,6 +699,19 @@ wasm: build
 
 wasm-emcc: build
 	$(call build-wasm-rts,$(WASMRUNTIME_EMCC),emcc)
+
+# Native WebAssembly exception-handling variant of the emcc runtime.  Built
+# into a separate tree (rts-wasm-emcc-eh), so the No_Exception_Propagation
+# rts-wasm-emcc is untouched.
+wasm-emcc-eh: build
+	$(call build-wasm-rts,$(WASMRUNTIME_EMCC_EH),emcc,eh)
+
+# Native WebAssembly exception-handling variant of the STANDALONE (tlsf)
+# runtime: no Emscripten.  Built into rts-wasm-eh, so the
+# No_Exception_Propagation rts-wasm is untouched.  The _Unwind_* personality-
+# call layer that emcc gets from libunwind is vendored (wasm_eh_unwind.c).
+wasm-eh: build
+	$(call build-wasm-rts,$(WASMRUNTIME_EH),tlsf,eh)
 
 # CCG (C code generator) native runtime.
 # sdefault.adb expects the CCG RTS at lib/gnat-llvm/<target>/rts-ccg/

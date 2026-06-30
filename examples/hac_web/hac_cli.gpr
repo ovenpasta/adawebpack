@@ -1,0 +1,34 @@
+--  Builds a command-line HAC compiler driver (hac_cli_main.adb) for wasm32.
+--
+--  Linked with -sNODERAWFS=1 (see the Makefile), the resulting hac_cli.js
+--  behaves like the native `hac` binary: it reads argv, opens source and data
+--  files on the real file system relative to the current directory, and exits
+--  with the program's exit status. This lets HAC's own regression harness
+--  (test/all_silent_tests) drive the wasm compiler unchanged, by using a thin
+--  `hac` wrapper script that runs this module under node.
+
+project HAC_CLI is
+
+   for Target use "llvm";
+   for Object_Dir use ".objs_cli";
+   for Exec_Dir use ".";
+   for Main use ("hac_cli_main.adb");
+
+   --  Deliberately excludes HAC's own hac/src/apps (hac.adb + hac_pkg.adb):
+   --  their post-mortem reporting needs Ada.Exceptions.Exception_Message and
+   --  exception propagation, neither available under the wasm runtime's
+   --  pragma Restrictions (No_Exception_Propagation). hac_cli_main.adb (in this
+   --  directory) provides the equivalent command-line behaviour instead.
+   for Source_Dirs use
+     (".",
+      "hac/src",
+      "hac/src/compile",
+      "hac/src/compile/emit",
+      "hac/src/execute",
+      "hac/src/manage");
+
+   package Compiler is
+      for Switches ("Ada") use ("--target=wasm32", "-O1", "-gnatp");
+   end Compiler;
+
+end HAC_CLI;

@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>HAC in WebAssembly - an Ada compiler running in your browser</title>
+<meta name="description" content="An Ada compiler and p-code VM (HAC), compiled to WebAssembly with GNAT-LLVM - compile and run Ada in your browser, no server, no install. Showcases the new GNAT-LLVM wasm port with native Ada exception-handling support, by Aldo Nicolas Bruno.">
+<meta name="keywords" content="Ada, HAC, compiler, WebAssembly, wasm, GNAT-LLVM, p-code, online Ada compiler, browser, exception handling">
+<meta name="author" content="HAC by Gautier de Montmollin; WebAssembly port by Aldo Nicolas Bruno via GNAT-LLVM / AdaWebPack">
+
+<link rel="icon" type="image/png" href="hac_icon.png">
+<meta name="theme-color" content="#005bbb">
+
+<!-- Open Graph / social cards -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="HAC in WebAssembly">
+<meta property="og:description" content="An Ada compiler and p-code VM (HAC) in your browser. Showcases the new GNAT-LLVM wasm port with native Ada exception-handling support, by Aldo Nicolas Bruno.">
+<meta property="og:image" content="hac_icon.png">
+<meta property="og:image:width" content="256">
+<meta property="og:image:height" content="256">
+<meta property="og:image:alt" content="HAC logo">
+
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="HAC in WebAssembly">
+<meta name="twitter:description" content="An Ada compiler and p-code VM (HAC) in your browser. Showcases the new GNAT-LLVM wasm port with native Ada exception-handling support, by Aldo Nicolas Bruno.">
+<meta name="twitter:image" content="hac_icon.png">
+<style>
+  :root {
+    color-scheme: light;
+    --blue:       #005bbb;
+    --blue-dark:  #004a99;
+    --blue-faint: #eef3fb;
+    --border:     #d4dbe6;
+    --ink:        #1b2433;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, sans-serif;
+    background: #ffffff;
+    color: #1b2433;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    padding: 12px 18px;
+    background: var(--blue);
+    color: #ffffff;
+    border-bottom: 1px solid var(--blue-dark);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header .logo {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 3px;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  header p  { margin: 4px 0 0; font-size: 12px; color: #cfe0f5; }
+  header .note { color: #bcd2ee; }
+  header a { color: #ffffff; text-decoration: underline; }
+  main {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+  .pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+  .pane + .pane { border-left: 1px solid var(--border); }
+  .pane h2 {
+    margin: 0;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--blue);
+    background: var(--blue-faint);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  #editor {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    position: relative;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  #console {
+    flex: 1;
+    margin: 0;
+    padding: 12px;
+    overflow: auto;
+    background: #f7f9fc;
+    color: #1b2433;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  #console .err { color: #c0392b; }
+  button {
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: #ffffff;
+    background: var(--blue);
+    border: none;
+    border-radius: 3px;
+    padding: 4px 14px;
+    cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: var(--blue-dark); }
+  button:disabled { background: #a9b6c7; cursor: default; }
+  .controls { display: flex; gap: 8px; align-items: center; }
+  #filename {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    padding: 4px 8px;
+    width: 9em;
+    border: 1px solid #a9b6c7;
+    border-radius: 4px;
+  }
+  #sample {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    padding: 4px 6px;
+    border: 1px solid #a9b6c7;
+    border-radius: 4px;
+  }
+  @media (max-width: 768px) {
+    body { height: 100dvh; }
+    main { flex-direction: column; }
+    .pane { flex: 1 1 0; }
+    .pane + .pane {
+      border-left: none;
+      border-top: 1px solid var(--border);
+    }
+    header { padding: 6px 10px; gap: 8px; align-items: center; }
+    header .logo { width: 32px; height: 32px; }
+    header h1 { font-size: 13px; }
+    header p { font-size: 11px; margin: 2px 0 0; }
+    header .note { display: none; }
+    .pane h2 {
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 6px 10px;
+      font-size: 11px;
+    }
+    .controls { flex-wrap: wrap; }
+    #filename { width: 7em; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <img class="logo" src="hac_icon.png" alt="HAC logo" width="44" height="44">
+    <div class="title">
+      <h1>HAC in WebAssembly</h1>
+      <p>An Ada compiler and p-code VM (HAC), compiled to wasm with GNAT-LLVM, compiling and running Ada in your browser.</p>
+      <p class="note">Powered by <a href="https://hacadacompiler.sourceforge.io/" target="_blank" rel="noopener">HAC</a> by Gautier de Montmollin; WebAssembly port (with exception-handling support) by Aldo Nicolas Bruno.</p>
+    </div>
+  </header>
+  <main>
+    <section class="pane">
+      <h2>
+        <span>Ada source</span>
+        <span class="controls">
+          <select id="sample" title="Load an example program"><option value="">Examples...</option></select>
+          <input id="filename" type="text" value="main.adb" spellcheck="false" />
+          <button id="run" disabled>Loading...</button>
+        </span>
+      </h2>
+      <div id="editor"></div>
+    </section>
+    <section class="pane">
+      <h2><span>Console</span></h2>
+      <pre id="console"></pre>
+    </section>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.43.3/ace.min.js"></script>
+  <script src="hac_web.js"></script>
+  <script src="samples.js"></script>
+  <script>
+    const runBtn  = document.getElementById("run");
+    const fileEl  = document.getElementById("filename");
+    const consoleEl = document.getElementById("console");
+
+    const SAMPLE = [
+      'with HAT; use HAT;',
+      'procedure Main is',
+      '  Total : Integer := 0;',
+      'begin',
+      '  Put_Line ("Hello from HAC running inside WebAssembly!");',
+      '  for I in 1 .. 7 loop',
+      '    Total := Total + I * I;',
+      '    Put_Line ("Sum of squares up to" & Integer\'Image (I) &',
+      '              " =" & Integer\'Image (Total));',
+      '  end loop;',
+      '  Put_Line ("Done.");',
+      'end Main;',
+      '',
+    ].join("\n");
+
+    const editor = ace.edit("editor");
+    editor.setTheme("ace/theme/chrome");
+    editor.session.setMode("ace/mode/ada");
+    editor.setOptions({
+      fontSize: "13px",
+      showPrintMargin: false,
+      tabSize: 2,
+      useSoftTabs: true,
+    });
+    editor.setValue(SAMPLE, -1);
+    window.addEventListener("resize", () => editor.resize());
+
+    const sampleSel = document.getElementById("sample");
+    const SAMPLES = globalThis.HAC_SAMPLES || [];
+    for (const s of SAMPLES) {
+      const o = document.createElement("option");
+      o.value = s.name;
+      o.textContent = s.name.replace(/\.adb$/, "");
+      sampleSel.appendChild(o);
+    }
+    sampleSel.addEventListener("change", () => {
+      const s = SAMPLES.find((x) => x.name === sampleSel.value);
+      if (!s) return;
+      editor.setValue(s.code, -1);
+      fileEl.value = s.name;  //  unit name must match the file name
+    });
+
+    function append(text, cls) {
+      const span = document.createElement("span");
+      if (cls) span.className = cls;
+      span.textContent = text + "\n";
+      consoleEl.appendChild(span);
+      consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
+
+    let hac = null;
+
+    createHacModule({
+      print:    (t) => append(t),
+      printErr: (t) => append(t, "err"),
+    }).then((Module) => {
+      hac = Module;
+      runBtn.disabled = false;
+      runBtn.textContent = "Run";
+    }).catch((e) => {
+      append("Failed to load wasm module: " + e, "err");
+    });
+
+    runBtn.addEventListener("click", () => {
+      if (!hac) return;
+      consoleEl.textContent = "";
+      runBtn.disabled = true;
+      runBtn.textContent = "Running...";
+      // Defer so the UI repaints the cleared console before HAC runs.
+      setTimeout(() => {
+        try {
+          const fname = (fileEl.value.trim() || "main.adb");
+          hac.ccall("hac_compile_and_run", null, ["string", "string"],
+                    [editor.getValue(), fname]);
+        } catch (e) {
+          append("Internal error: " + e, "err");
+        } finally {
+          runBtn.disabled = false;
+          runBtn.textContent = "Run";
+        }
+      }, 0);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+project HAC_Web is
+
+   for Target use "llvm";
+   for Object_Dir use ".objs";
+   for Exec_Dir use ".";
+   for Main use ("hac_web.adb");
+
+   --  The driver plus the HAC compiler/VM sources (the "src/apps" command-line
+   --  tools are deliberately excluded: they pull in Ada.Command_Line).
+   for Source_Dirs use
+     (".",
+      "hac/src",
+      "hac/src/compile",
+      "hac/src/compile/emit",
+      "hac/src/execute",
+      "hac/src/manage");
+
+   package Compiler is
+      for Switches ("Ada") use ("--target=wasm32", "-O1", "-gnatp");
+   end Compiler;
+
+end HAC_Web;

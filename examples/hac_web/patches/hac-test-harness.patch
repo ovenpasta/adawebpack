@@ -1,0 +1,110 @@
+From 9fefdf1e16545978ca7a4eee8f9b1caa0e2f4ab8 Mon Sep 17 00:00:00 2001
+From: Aldo Nicolas Bruno <ovenpasta@pizzahack.eu>
+Date: Sun, 28 Jun 2026 07:12:26 +0000
+Subject: [PATCH] test: route orchestrator and remarks_check through
+ hac_command env var
+
+---
+ test/all_silent_tests.adb | 27 +++++++++++++++++++++++----
+ test/remarks_check.adb    | 19 ++++++++++++++++++-
+ 2 files changed, 41 insertions(+), 5 deletions(-)
+
+diff --git a/test/all_silent_tests.adb b/test/all_silent_tests.adb
+index 77ef07f..cfa48f6 100644
+--- a/test/all_silent_tests.adb
++++ b/test/all_silent_tests.adb
+@@ -22,6 +22,24 @@ procedure All_Silent_Tests is
+ 
+   procedure Launch_Tests is
+ 
++    --  The HAC command-line tool to invoke for each test.  By default we use
++    --  the relative path to the locally built `hac` binary (one or more ".."
++    --  steps up, depending on the current directory).  If the `hac_command`
++    --  environment variable is set (for instance "node /path/hac_cli.js" to
++    --  drive the wasm build), we use that instead, so no binary swapping is
++    --  needed.  Same mechanism as the `hacbuild` variable below.
++
++    hac_cmd : constant VString := Get_Env ("hac_command");
++
++    function HAC_Command (ups : Positive) return VString is
++    begin
++      if hac_cmd = "" then
++        return ups * (+".." & Directory_Separator) & "hac";
++      else
++        return hac_cmd;
++      end if;
++    end HAC_Command;
++
+     procedure Shell (command : VString; echo : Boolean; success : out Boolean) is
+       r : Integer;
+     begin
+@@ -37,7 +55,9 @@ procedure All_Silent_Tests is
+ 
+     procedure Build_HAC (success : out Boolean) is
+     begin
+-      if Get_Env ("hacbuild") = "done" then
++      if hac_cmd /= "" or else Get_Env ("hacbuild") = "done" then
++        --  A custom HAC command was supplied (or a build was already done),
++        --  so there is nothing to (re-)build locally.
+         success := True;
+         return;
+       end if;
+@@ -51,7 +71,7 @@ procedure All_Silent_Tests is
+       success : Boolean;
+     begin
+       Shell (
+-        ups * (+".." & Directory_Separator) & "hac " & Ada_file_name & ' ' & args,
++        HAC_Command (ups) & ' ' & Ada_file_name & ' ' & args,
+         False,
+         success
+       );
+@@ -103,8 +123,7 @@ procedure All_Silent_Tests is
+        "exm" & Directory_Separator;
+ 
+     generate : constant VString :=
+-      +".." & Directory_Separator &
+-       "hac " & examples_dir & "pkg_demo_gen.adb";
++      HAC_Command (1) & ' ' & examples_dir & "pkg_demo_gen.adb";
+ 
+   begin
+     Put_Line ("    ______________________      _____________________________________________");
+diff --git a/test/remarks_check.adb b/test/remarks_check.adb
+index 50abfa2..0f9af8e 100644
+--- a/test/remarks_check.adb
++++ b/test/remarks_check.adb
+@@ -7,6 +7,23 @@ procedure Remarks_Check is
+ 
+   use HAT;
+ 
++  --  The `hac` command used for the sub-compilations below.  By default it is
++  --  the locally built `hac`, one ".." up from test/.  If the `hac_command`
++  --  environment variable is set (for instance "node /path/hac_cli.js" to drive
++  --  the wasm build), we use that instead, so the sub-compilations run through
++  --  the same HAC as the rest of the suite.  Same mechanism as the orchestrator
++  --  (all_silent_tests).
++  hac_cmd : constant VString := Get_Env ("hac_command");
++
++  function HAC_Command return VString is
++  begin
++    if hac_cmd = "" then
++      return +".." & Directory_Separator & "hac";
++    else
++      return hac_cmd;
++    end if;
++  end HAC_Command;
++
+   --  Primitive file comparison for text files that should be identical.
+   procedure File_Comp (name_1, name_2 : VString; ok : out Boolean) is 
+     f1, f2 : File_Type;
+@@ -49,7 +66,7 @@ procedure Remarks_Check is
+   begin
+     --  -r0 disables all remarks
+     Shell_Execute
+-      (+".." & Directory_Separator & "hac -c -r0 -r" & letter & " ../exm/remarks.adb 2>" & name_new);
++      (HAC_Command & " -c -r0 -r" & letter & " ../exm/remarks.adb 2>" & name_new);
+     File_Comp (name_ok, name_new, ok);
+     if not ok then
+       Testing_Utilities.Failure
+-- 
+2.53.0
+

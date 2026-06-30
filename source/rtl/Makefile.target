@@ -11,6 +11,29 @@ WASM_CC?=clang
 # Sysroot providing only C header declarations (stdint.h, unwind.h, ...).
 # Defaults to the Emscripten sysroot if present.
 WASM_CC_SYSROOT?=$(HOME)/.cache/emscripten/sysroot
+# Native wasm EH encoding for the EH runtimes: "legacy" (default, try/catch)
+# or "exnref" (try_table/throw_ref).  Driven by the GNAT_WASM_EH environment
+# variable so one switch reaches both the Ada compiles (llvm-gnat1 reads
+# GNAT_WASM_EH directly) and the C support files (extra flags added below).
+# The app must be built with the same setting, and the engine must support the
+# chosen encoding.
+# Reject typos: a bad value would otherwise silently build legacy and mismatch
+# the app (the front end rejects it too; this catches it at RTS-build time).
+ifneq ($(GNAT_WASM_EH),)
+ifeq ($(filter $(GNAT_WASM_EH),legacy exnref),)
+$(error GNAT_WASM_EH must be unset, 'legacy', or 'exnref' (got '$(GNAT_WASM_EH)'))
+endif
+endif
+WASM_EH_EXNREF_CLANG := $(if $(filter exnref,$(GNAT_WASM_EH)),-mllvm -wasm-use-legacy-eh=false,)
+WASM_EH_EXNREF_EMCC  := $(if $(filter exnref,$(GNAT_WASM_EH)),-sWASM_LEGACY_EXCEPTIONS=0,)
+# Encode the chosen encoding in the RTS output directory so legacy and exnref
+# runtimes never share a tree (a stale in-place rebuild would otherwise give a
+# mixed-encoding link).  Legacy keeps the original dir names; exnref appends
+# "-exnref".  The matching app build must point --RTS at the right tree.
+WASM_EH_SUFFIX := $(if $(filter exnref,$(GNAT_WASM_EH)),-exnref,)
+# Export so the Ada RTS compiles (llvm-gnat1, which reads GNAT_WASM_EH directly)
+# see the same setting whether it was passed as an env var or a make variable.
+export GNAT_WASM_EH
 # WASM_MALLOC selects the heap allocator for the WASM runtime:
 #
 #   tlsf  (default) - Ada's built-in TLSF allocator.  Ada exports "malloc",
@@ -659,10 +682,10 @@ define build-wasm-rts
 	if [ "$(3)" = "eh" ] && [ "$(2)" = "emcc" ]; then \
 	  cd $(1)/adalib && \
 	  echo ">>> Compile raise-gcc.c (emcc, wasm EH personality)" && \
-	  $(EMCC) -c -O2 -DIN_RTS -DSTANDALONE -I../adainclude \
+	  $(EMCC) -c -O2 $(WASM_EH_EXNREF_EMCC) -DIN_RTS -DSTANDALONE -I../adainclude \
 	    ../adainclude/raise-gcc.c -o raise-gcc.o && \
 	  echo ">>> Compile wasm_eh_support.c (emcc)" && \
-	  $(EMCC) -c -O2 -I../adainclude \
+	  $(EMCC) -c -O2 $(WASM_EH_EXNREF_EMCC) -I../adainclude \
 	    ../adainclude/wasm_eh_support.c -o wasm_eh_support.o \
 	    || exit 1; \
 	fi
@@ -672,8 +695,9 @@ define build-wasm-rts
 	# unresolved libc references become wasm imports.
 	if [ "$(3)" = "eh" ] && [ "$(2)" != "emcc" ]; then \
 	  cd $(1)/adalib && \
-	  WCC="$(WASM_CC) --target=wasm32 -fwasm-exceptions -O2 -nostdlib \
-	    --sysroot=$(WASM_CC_SYSROOT) -DIN_RTS -DSTANDALONE -I../adainclude" && \
+	  WCC="$(WASM_CC) --target=wasm32 -fwasm-exceptions $(WASM_EH_EXNREF_CLANG) \
+	    -O2 -nostdlib --sysroot=$(WASM_CC_SYSROOT) -DIN_RTS -DSTANDALONE \
+	    -I../adainclude" && \
 	  echo ">>> Compile raise-gcc.c (wasm clang, EH personality)" && \
 	  $$WCC -c ../adainclude/raise-gcc.c -o raise-gcc.o && \
 	  echo ">>> Compile wasm_eh_support.c (wasm clang)" && \
@@ -701,17 +725,18 @@ wasm-emcc: build
 	$(call build-wasm-rts,$(WASMRUNTIME_EMCC),emcc)
 
 # Native WebAssembly exception-handling variant of the emcc runtime.  Built
-# into a separate tree (rts-wasm-emcc-eh), so the No_Exception_Propagation
-# rts-wasm-emcc is untouched.
+# into a separate tree (rts-wasm-emcc-eh, or -exnref under GNAT_WASM_EH=exnref),
+# so the No_Exception_Propagation rts-wasm-emcc is untouched.
 wasm-emcc-eh: build
-	$(call build-wasm-rts,$(WASMRUNTIME_EMCC_EH),emcc,eh)
+	$(call build-wasm-rts,$(WASMRUNTIME_EMCC_EH)$(WASM_EH_SUFFIX),emcc,eh)
 
 # Native WebAssembly exception-handling variant of the STANDALONE (tlsf)
-# runtime: no Emscripten.  Built into rts-wasm-eh, so the
-# No_Exception_Propagation rts-wasm is untouched.  The _Unwind_* personality-
-# call layer that emcc gets from libunwind is vendored (wasm_eh_unwind.c).
+# runtime: no Emscripten.  Built into rts-wasm-eh (or -exnref under
+# GNAT_WASM_EH=exnref), so the No_Exception_Propagation rts-wasm is untouched.
+# The _Unwind_* personality-call layer that emcc gets from libunwind is
+# vendored (wasm_eh_unwind.c).
 wasm-eh: build
-	$(call build-wasm-rts,$(WASMRUNTIME_EH),tlsf,eh)
+	$(call build-wasm-rts,$(WASMRUNTIME_EH)$(WASM_EH_SUFFIX),tlsf,eh)
 
 # CCG (C code generator) native runtime.
 # sdefault.adb expects the CCG RTS at lib/gnat-llvm/<target>/rts-ccg/

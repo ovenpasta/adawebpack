@@ -4,6 +4,12 @@
 AdaWebPack provides the WebAssembly runtime and Web API bindings used with the
 generic GNAT-LLVM compiler.
 
+Native WebAssembly exception handling is supported: real Ada raise/catch across
+frames (with finalization and `Exception_Name`/`Message`/`Identity`) on the EH
+runtimes, built with `make wasm-emcc-eh` / `make wasm-eh`. The legacy
+`try`/`catch` encoding is the default; `GNAT_WASM_EH=exnref` selects the
+standardized exnref encoding. See the code comments for details.
+
 ## How to install
 
 Prebuild packages are available on [Release page](https://github.com/godunko/adawebpack/releases).
@@ -18,16 +24,15 @@ You will also need `wasm-ld`, the Web asssembly linker. You will find this:
 
  * Setup GNAT using [Alire](https://alire.ada.dev/).
 
- * Clone [GNAT-LLVM](https://github.com/ovenpasta/gnat-llvm). Use branch
-   `gcc-16`.
+ * Clone [GNAT-LLVM](https://github.com/ovenpasta/gnat-llvm).
    ```
-   git clone --branch=gcc-16 https://github.com/ovenpasta/gnat-llvm
+   git clone https://github.com/ovenpasta/gnat-llvm
    ```
 
    This repository now expects a GCC 16-compatible GNAT-LLVM tree with the
    required target-conditional WebAssembly compiler support already present in
-   the checked-out branch. No `patch -p1 < adawebpack_src/patches/*.patch`
-   step is needed.
+   the main line. No `patch -p1 < adawebpack_src/patches/*.patch` step is
+   needed.
 
  * Clone [llvm-bindings](https://github.com/AdaCore/llvm-bindings) into the
    `gnat-llvm` checkout.
@@ -41,14 +46,17 @@ You will also need `wasm-ld`, the Web asssembly linker. You will find this:
    git clone -b gnat-fsf-15 https://github.com/ovenpasta/bb-runtimes gnat-llvm/llvm-interface/bb-runtimes
    ```
 
- * Clone GCC sources and apply the GNAT-LLVM GCC 16 patch.
+ * Clone GCC 16.1.0 sources and apply the GNAT-LLVM patches.
    ```
-   git clone https://github.com/gcc-mirror/gcc.git gnat-llvm/llvm-interface/gcc
+   git clone --branch releases/gcc-16.1.0 --depth 1 \
+       https://github.com/gcc-mirror/gcc.git gnat-llvm/llvm-interface/gcc
    git -C gnat-llvm/llvm-interface/gcc apply ../patches/gcc-16-repinfo-accessors.patch
+   git -C gnat-llvm/llvm-interface/gcc apply ../patches/gcc-16-allow-reraise-no-propagation.patch
+   git -C gnat-llvm/llvm-interface/gcc apply ../patches/gcc-16-wasm-eh-raise-gcc.patch
    ```
 
-   This is a small `Repinfo` accessor patch required by the current
-   `gnat-llvm` branch when building against upstream GCC 16 sources.
+   The first is a `Repinfo` accessor patch required by GNAT-LLVM generally;
+   the other two enable the WebAssembly exception-handling runtimes.
 
  * Setup GNAT-LLVM development environment, see details in
    [GNAT-LLVM README](https://github.com/ovenpasta/gnat-llvm). Note, you need to use
@@ -75,7 +83,7 @@ You will also need `wasm-ld`, the Web asssembly linker. You will find this:
 
    ```
    cd gnat-llvm/llvm-interface
-   git clone --branch=gcc-16-wasm-rts https://github.com/ovenpasta/adawebpack.git adawebpack_src
+   git clone https://github.com/ovenpasta/adawebpack.git adawebpack_src
    mv Makefile.target Makefile.target.orig
    ln -s adawebpack_src/source/rtl/Makefile.target Makefile.target
    cd -

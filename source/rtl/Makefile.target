@@ -454,7 +454,8 @@ EMCC_LIBGNAT_UNITS = \
 # Spec-only libgnat units for the emcc RTS:
 #   s-osprim: body is forked (s-osprim__wasm_emcc.adb)
 #   s-ficobl: only the spec is needed by the emcc Text_IO chain
-EMCC_LIBGNAT_SPEC_UNITS = s-osprim s-ficobl
+#   g-os_lib: user-facing rename of System.OS_Lib (.adb is "pragma No_Body")
+EMCC_LIBGNAT_SPEC_UNITS = s-osprim s-ficobl g-os_lib
 
 # Full GNAT exception-propagation runtime, copied from GNAT_SRC/libgnat for the
 # EH-enabled emcc RTS (see the "eh" branch of build-wasm-rts).  These OVERRIDE
@@ -653,7 +654,9 @@ define build-wasm-rts
 	  echo ">>> Compile s-exnlli.ads" && \
 	  $(COMPILE) ../adainclude/s-exnlli.ads && \
 	  echo ">>> Compile s-imfi64.ads" && \
-	  $(COMPILE) ../adainclude/s-imfi64.ads \
+	  $(COMPILE) ../adainclude/s-imfi64.ads && \
+	  echo ">>> Compile g-os_lib.ads" && \
+	  $(COMPILE) ../adainclude/g-os_lib.ads \
 	    || exit 1; \
 	fi
 	cd $(1)/adalib && for f in ../adainclude/*.adb; do \

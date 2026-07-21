@@ -443,15 +443,10 @@ It could be handy to use docker.
 
 ## Unsupported features
 
- - nested subprograms are not supported
-
- - exceptions support is limited to local exceptions propagation and last
-   chance handler
-
  - tasks and protected objects are not supported
 
  - file-based `Ada.Text_IO` (`Open`, `Create`, `File_Type`, etc.) is
-   available only in `rts-wasm-emcc` over Emscripten's MEMFS/NODEFS/IDBFS;
+   available only in the emcc runtimes over Emscripten's MEMFS/NODEFS/IDBFS;
    `rts-wasm` ships only the stripped, console-only variant. See the "Text
    I/O" subsection for details.
 

@@ -35,6 +35,7 @@
 //--------------------------------------------------------------------------//
 
 let instance = {};
+let fputc_buffer = "";
 
 export function initialize(i) {
   instance = i;
@@ -90,6 +91,17 @@ let __adawebpack___classes = [
 export let imports = {
 
   __gnat_grow: function (size) { return instance.exports.memory.grow(size); },
+  //  Required by the EH runtimes (rts-wasm-eh*): traceback base address and
+  //  command-line stubs (no argv in the browser), and the raise-gcc fallback
+  //  printer. fputc buffers up to a newline and forwards to the console.
+  __gnat_get_executable_load_address: function () { return 0; },
+  __gnat_len_arg: function (arg) { return 0; },
+  __gnat_fill_arg: function (address, arg) {},
+  fputc: function (char, stream) {
+    if (char == 10) { console.log(fputc_buffer); fputc_buffer = ""; }
+    else { fputc_buffer += String.fromCharCode(char); }
+    return char;
+  },
   __gnat_put_int: function (item) { console.log(item); },
   __gnat_put_char: function (item) { console.log(String.fromCharCode(item)); },
   __gnat_put_string: function (address,size) { console.log(string_to_js(address, size)); },

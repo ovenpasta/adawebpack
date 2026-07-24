@@ -9,7 +9,12 @@ LLVM_GCC ?= $(LLVM_BIN_DIR)/llvm-gcc
 GNATBIND ?= $(LLVM_BIN_DIR)/llvm-gnatbind
 LLVM_CONFIG ?= llvm-config
 LLVM_LIBRARY_PATH ?=
-ADA_RTS ?= $(LLVM_INTERFACE_DIR)/lib/gnat-llvm/wasm32/rts-wasm-emcc
+# EH-enabled emcc runtime: full Ada exception propagation via back-end ZCX
+# + the WebAssembly exception-handling proposal. Every emcc link must carry
+# -fwasm-exceptions so the wasm EH personality / unwind tables are kept, and
+# every static library in the link must be built with -fwasm-exceptions too
+# (mixing JS-based and wasm-based longjmp/EH encodings in one link fails).
+ADA_RTS ?= $(LLVM_INTERFACE_DIR)/lib/gnat-llvm/wasm32/rts-wasm-emcc-eh
 GPRBUILD_FLAGS ?= --target=llvm --RTS=$(ADA_RTS)
 
 SDL3_PREFIX ?= $(SDL3_ROOT)/sdl3-prefix
@@ -22,7 +27,7 @@ SDL3_TTF_PREFIX ?= $(SDL3_ROOT)/sdl3-ttf-prefix
 SDL3_TTF_INCLUDE_DIR ?= $(SDL3_TTF_PREFIX)/include
 SDL3_TTF_LIB ?= $(SDL3_TTF_PREFIX)/lib/libSDL3_ttf.a
 
-EMCC_COMMON_FLAGS ?= -O2 -sALLOW_MEMORY_GROWTH=1
+EMCC_COMMON_FLAGS ?= -O2 -fwasm-exceptions -sALLOW_MEMORY_GROWTH=1
 ADA_EMCC_FLAGS ?= -sSTACK_SIZE=8388608
 SDL3_CFLAGS = -I$(SDL3_INCLUDE_DIR)
 SDL3_LDFLAGS = $(SDL3_LIB)

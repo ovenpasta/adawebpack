@@ -16,7 +16,7 @@ Current example directories:
 - `cmake`
 - `ninja` or another CMake generator
 - a built GNAT-LLVM toolchain under `../../../bin`
-- a packaged Emscripten wasm Ada runtime under `../../../lib/gnat-llvm/wasm32/rts-wasm-emcc`
+- a packaged Emscripten wasm Ada EH runtime under `../../../lib/gnat-llvm/wasm32/rts-wasm-emcc-eh`
 
 All commands below assume:
 
@@ -26,15 +26,23 @@ cd llvm-interface/adawebpack_src/examples/sdl3
 
 ## 1. Build the Emscripten Wasm Ada Runtime
 
-The SDL examples require the `rts-wasm-emcc` runtime, which delegates all heap
-allocation to Emscripten's dlmalloc so that Ada, SDL, and the C library share
-a single allocator with no WASM function-table conflicts.
+The SDL examples require the `rts-wasm-emcc-eh` runtime: it delegates all
+heap allocation to Emscripten's dlmalloc (so Ada, SDL, and the C library
+share a single allocator with no WASM function-table conflicts) and enables
+full Ada exception propagation via native WebAssembly exception handling.
+
+Every emcc link therefore carries `-fwasm-exceptions` (wired in `common.mk`),
+and every static library in the link must be built with `-fwasm-exceptions`
+as well: mixing JS-based and wasm-based longjmp/EH encodings in one link
+fails. The cmake commands below pass the flag when building SDL3, SDL3_image,
+and SDL3_ttf (SDL3_ttf's vendored FreeType uses setjmp/longjmp, which follows
+the same encoding choice).
 
 Run this from the top-level `llvm-interface` directory:
 
 ```sh
 cd llvm-interface
-make wasm-emcc
+make wasm-emcc-eh
 ```
 
 With a pinned LLVM 21 toolchain on Arch Linux:
@@ -42,11 +50,15 @@ With a pinned LLVM 21 toolchain on Arch Linux:
 ```sh
 cd llvm-interface
 export PATH=/usr/lib/llvm21/bin:$PATH
-make wasm-emcc LLVM_CONFIG=llvm-config-21 CLANG_LINK_LIB=':libclang-cpp.so.21.1'
+make wasm-emcc-eh LLVM_CONFIG=llvm-config-21 CLANG_LINK_LIB=':libclang-cpp.so.21.1'
 ```
 
-The output is placed in `lib/gnat-llvm/wasm32/rts-wasm-emcc/`. The SDL
-`common.mk` defaults `ADA_RTS` to this directory automatically.
+The output is placed in `lib/gnat-llvm/wasm32/rts-wasm-emcc-eh/`. The SDL
+`common.mk` defaults `ADA_RTS` to this directory automatically. The default
+wasm EH encoding is the legacy one; to use the standardized exnref encoding
+instead, set `GNAT_WASM_EH=exnref` for both the runtime build and the example
+build, point `ADA_RTS` at the `-exnref` runtime tree, and add
+`-sWASM_LEGACY_EXCEPTIONS=0` to the emcc link flags.
 
 ## 2. Download and Build SDL3 for Emscripten
 
@@ -64,6 +76,8 @@ Configure, build, and install it:
 emcmake cmake -S SDL-release-3.4.2 -B SDL-release-3.4.2-build \
   -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_FLAGS="-fwasm-exceptions" \
+  -DCMAKE_CXX_FLAGS="-fwasm-exceptions" \
   -DSDL_SHARED=OFF \
   -DSDL_STATIC=ON \
   -DCMAKE_INSTALL_PREFIX="$PWD/sdl3-prefix"
@@ -96,6 +110,8 @@ EM_CACHE=/tmp/emscripten-cache \
 emcmake cmake -S SDL3_image-3.4.0 -B SDL3_image-3.4.0-build \
   -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_FLAGS="-fwasm-exceptions" \
+  -DCMAKE_CXX_FLAGS="-fwasm-exceptions" \
   -DBUILD_SHARED_LIBS=OFF \
   -DSDLIMAGE_SAMPLES=OFF \
   -DSDLIMAGE_TESTS=OFF \
@@ -135,6 +151,8 @@ EM_CACHE=/tmp/emscripten-cache \
 emcmake cmake -S SDL3_ttf-3.2.2 -B SDL3_ttf-3.2.2-build \
   -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_FLAGS="-fwasm-exceptions" \
+  -DCMAKE_CXX_FLAGS="-fwasm-exceptions" \
   -DBUILD_SHARED_LIBS=OFF \
   -DSDLTTF_VENDORED=ON \
   -DSDLTTF_HARFBUZZ=ON \

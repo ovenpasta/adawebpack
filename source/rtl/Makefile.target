@@ -11,6 +11,12 @@ WASM_CC?=clang
 # Sysroot providing only C header declarations (stdint.h, unwind.h, ...).
 # Defaults to the Emscripten sysroot if present.
 WASM_CC_SYSROOT?=$(HOME)/.cache/emscripten/sysroot
+# WASI toolchain: a wasm-capable clang, the wasi-sysroot (wasi-libc), and the
+# compiler-rt builtins archive used at app link time (the clang driver does
+# not always find it; pass it explicitly).
+WASI_CC?=clang
+WASI_SYSROOT?=/usr/share/wasi-sysroot
+WASI_BUILTINS?=/usr/lib/clang/22/lib/wasm32-unknown-wasip1/libclang_rt.builtins.a
 # Native wasm EH encoding for the EH runtimes: "legacy" (default, try/catch)
 # or "exnref" (try_table/throw_ref).  Driven by the GNAT_WASM_EH environment
 # variable so one switch reaches both the Ada compiles (llvm-gnat1 reads
@@ -544,6 +550,7 @@ WASMRUNTIME=lib/gnat-llvm/wasm32/rts-wasm
 WASMRUNTIME_EMCC=lib/gnat-llvm/wasm32/rts-wasm-emcc
 WASMRUNTIME_EMCC_EH=lib/gnat-llvm/wasm32/rts-wasm-emcc-eh
 WASMRUNTIME_EH=lib/gnat-llvm/wasm32/rts-wasm-eh
+WASMRUNTIME_WASI_EH=lib/gnat-llvm/wasm32/rts-wasm-wasi-eh
 
 # build-wasm-rts RTS_DIR MALLOC_VARIANT [EH]
 # Populate and compile one WASM runtime tree.
@@ -581,7 +588,7 @@ define build-wasm-rts
 	cp -p $(GNAT_SRC)/libgnat/s-oslock__dummy.ads $(1)/adainclude/s-oslock.ads
 	cp -p $(GNAT_SRC)/libgnat/s-flocon__none.adb  $(1)/adainclude/s-flocon.adb
 	# Per-variant overrides and additions
-	if [ "$(2)" = "emcc" ]; then \
+	if [ "$(2)" = "emcc" ] || [ "$(2)" = "wasi" ]; then \
 	  for u in $(EMCC_HOST_UNITS) $(EMCC_NUM_IO_UNITS); do \
 	    cp -p $(GNAT_SRC)/libgnat/$$u.ad[sb] $(1)/adainclude/ || exit 1; \
 	  done; \
@@ -615,6 +622,10 @@ define build-wasm-rts
 	  cp -p $(GNAT_SRC)/libgnat/s-excmac__gcc.adb $(1)/adainclude/s-excmac.adb; \
 	  if [ "$(2)" = "emcc" ]; then \
 	    cp -p $(AWP_SRC)/rtl/system__wasm_emcc_eh.ads $(1)/adainclude/system.ads; \
+	  elif [ "$(2)" = "wasi" ]; then \
+	    cp -p $(AWP_SRC)/rtl/system__wasm_wasi_eh.ads $(1)/adainclude/system.ads; \
+	    cp -p $(AWP_SRC)/rtl/c/wasm_eh_unwind.c $(1)/adainclude/; \
+	    cp -p $(GNAT_SRC)/runtime.h $(1)/adainclude/; \
 	  else \
 	    cp -p $(AWP_SRC)/rtl/system__wasm_eh.ads $(1)/adainclude/system.ads; \
 	    cp -p $(AWP_SRC)/rtl/c/wasm_eh_unwind.c $(1)/adainclude/; \
@@ -635,7 +646,7 @@ define build-wasm-rts
 	  echo ">>> Compile $$f"; \
 	  $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp ../adainclude/$$f || exit 1; \
 	done
-	if [ "$(2)" = "emcc" ]; then \
+	if [ "$(2)" = "emcc" ] || [ "$(2)" = "wasi" ]; then \
 	  cd $(1)/adalib && \
 	  echo ">>> Compile s-oscons.ads" && \
 	  $(ADAC) -c -gnatpg -nostdinc -I../adainclude --target=wasm32 -gnateT=../target.atp ../adainclude/s-oscons.ads && \
@@ -682,6 +693,25 @@ define build-wasm-rts
 	    ../adainclude/exit.c -o exit.o \
 	    || exit 1; \
 	fi
+	# WASI host C support: same files as emcc, compiled against wasi-libc.
+	# wasi_stubs provides headers wasi-libc lacks (sys/wait.h for adaint.c).
+	if [ "$(2)" = "wasi" ]; then \
+	  cp -pr $(AWP_SRC)/rtl/c/wasi_stubs/sys $(1)/adainclude/; \
+	  cp -p $(AWP_SRC)/rtl/c/wasi_stubs/wasi_missing.h $(1)/adainclude/; \
+	  cd $(1)/adalib && \
+	  WICC="$(WASI_CC) --target=wasm32-wasip1 --sysroot=$(WASI_SYSROOT) -O2 \
+	    -D_WASI_EMULATED_SIGNAL -include wasi_missing.h \
+	    -DIN_RTS -DSTANDALONE -I../adainclude" && \
+	  echo ">>> Compile text_io_emcc_shim.c (wasi)" && \
+	  $$WICC -c ../adainclude/text_io_emcc_shim.c -o text_io_emcc_shim.o && \
+	  echo ">>> Compile adaint.c (wasi)" && \
+	  $$WICC -c ../adainclude/adaint.c -o adaint.o && \
+	  echo ">>> Compile argv.c (wasi)" && \
+	  $$WICC -c ../adainclude/argv.c -o argv.o && \
+	  echo ">>> Compile exit.c (wasi)" && \
+	  $$WICC -c ../adainclude/exit.c -o exit.o \
+	    || exit 1; \
+	fi
 	if [ "$(3)" = "eh" ] && [ "$(2)" = "emcc" ]; then \
 	  cd $(1)/adalib && \
 	  echo ">>> Compile raise-gcc.c (emcc, wasm EH personality)" && \
@@ -696,7 +726,20 @@ define build-wasm-rts
 	# raise-gcc.c + wasm_eh_support.c (shared) + wasm_eh_unwind.c (the
 	# _Unwind_* personality-call layer emcc would otherwise supply).  -nostdlib:
 	# unresolved libc references become wasm imports.
-	if [ "$(3)" = "eh" ] && [ "$(2)" != "emcc" ]; then \
+	if [ "$(3)" = "eh" ] && [ "$(2)" = "wasi" ]; then \
+	  cd $(1)/adalib && \
+	  WICC="$(WASI_CC) --target=wasm32-wasip1 --sysroot=$(WASI_SYSROOT) \
+	    -fwasm-exceptions $(WASM_EH_EXNREF_CLANG) -O2 \
+	    -DIN_RTS -DSTANDALONE -I../adainclude" && \
+	  echo ">>> Compile raise-gcc.c (wasi clang, EH personality)" && \
+	  $$WICC -c ../adainclude/raise-gcc.c -o raise-gcc.o && \
+	  echo ">>> Compile wasm_eh_support.c (wasi clang)" && \
+	  $$WICC -c ../adainclude/wasm_eh_support.c -o wasm_eh_support.o && \
+	  echo ">>> Compile wasm_eh_unwind.c (wasi clang)" && \
+	  $$WICC -c ../adainclude/wasm_eh_unwind.c -o wasm_eh_unwind.o \
+	    || exit 1; \
+	fi
+	if [ "$(3)" = "eh" ] && [ "$(2)" != "emcc" ] && [ "$(2)" != "wasi" ]; then \
 	  cd $(1)/adalib && \
 	  WCC="$(WASM_CC) --target=wasm32 -fwasm-exceptions $(WASM_EH_EXNREF_CLANG) \
 	    -O2 -nostdlib --sysroot=$(WASM_CC_SYSROOT) -DIN_RTS -DSTANDALONE \
@@ -740,6 +783,11 @@ wasm-emcc-eh: build
 # vendored (wasm_eh_unwind.c).
 wasm-eh: build
 	$(call build-wasm-rts,$(WASMRUNTIME_EH)$(WASM_EH_SUFFIX),tlsf,eh)
+
+# WASI variant of the EH runtime: emcc-level library surface over wasi-libc,
+# runs on wasmer / wasmtime / node:wasi.  See llvm-interface/WASI.md.
+wasm-wasi-eh: build
+	$(call build-wasm-rts,$(WASMRUNTIME_WASI_EH)$(WASM_EH_SUFFIX),wasi,eh)
 
 # CCG (C code generator) native runtime.
 # sdefault.adb expects the CCG RTS at lib/gnat-llvm/<target>/rts-ccg/

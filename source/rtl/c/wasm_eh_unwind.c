@@ -108,9 +108,12 @@ _Unwind_GetRegionStart (struct _Unwind_Context *context)
 }
 
 /* libc abort: referenced by raise-gcc.c on the unreachable/fatal paths.  The
-   standalone runtime has no libc, so trap. */
+   standalone runtime has no libc, so trap.  Not needed under WASI, whose
+   libc provides abort. */
+#ifndef __wasi__
 void
 abort (void)
 {
   __builtin_trap ();
 }
+#endif

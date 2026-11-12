@@ -698,6 +698,7 @@ define build-wasm-rts
 	if [ "$(2)" = "wasi" ]; then \
 	  cp -pr $(AWP_SRC)/rtl/c/wasi_stubs/sys $(1)/adainclude/; \
 	  cp -p $(AWP_SRC)/rtl/c/wasi_stubs/wasi_missing.h $(1)/adainclude/; \
+	  cp -p $(AWP_SRC)/rtl/c/wasi_stubs/wasi_missing.c $(1)/adainclude/; \
 	  cd $(1)/adalib && \
 	  WICC="$(WASI_CC) --target=wasm32-wasip1 --sysroot=$(WASI_SYSROOT) -O2 \
 	    -D_WASI_EMULATED_SIGNAL -include wasi_missing.h \
@@ -709,7 +710,9 @@ define build-wasm-rts
 	  echo ">>> Compile argv.c (wasi)" && \
 	  $$WICC -c ../adainclude/argv.c -o argv.o && \
 	  echo ">>> Compile exit.c (wasi)" && \
-	  $$WICC -c ../adainclude/exit.c -o exit.o \
+	  $$WICC -c ../adainclude/exit.c -o exit.o && \
+	  echo ">>> Compile wasi_missing.c (wasi)" && \
+	  $$WICC -c ../adainclude/wasi_missing.c -o wasi_missing.o \
 	    || exit 1; \
 	fi
 	if [ "$(3)" = "eh" ] && [ "$(2)" = "emcc" ]; then \

@@ -177,3 +177,23 @@ void __gnat_put_exception (const char *msg, unsigned length, unsigned line)
   fputc ('\n', stderr);
   fflush (stderr);
 }
+
+/* ---- void-returning entry points for System.OS_Lib ---- */
+/* s-os_lib imports __gnat_lseek and __gnat_dup2 as procedures, but adaint.c
+ * defines them returning int.  Native ABIs tolerate that; under wasm the
+ * signature mismatch makes wasm-ld bind the Ada call to a trap stub.  The RTS
+ * build compiles adaint.c with these two renamed to *_int (ADAINT_RENAMES in
+ * Makefile.target) and the Ada imports resolve to these wrappers. */
+
+int __gnat_lseek_int (int fd, long offset, int whence);
+int __gnat_dup2_int (int oldfd, int newfd);
+
+void __gnat_lseek (int fd, long offset, int whence)
+{
+  (void) __gnat_lseek_int (fd, offset, whence);
+}
+
+void __gnat_dup2 (int oldfd, int newfd)
+{
+  (void) __gnat_dup2_int (oldfd, newfd);
+}

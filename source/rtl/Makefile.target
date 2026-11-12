@@ -481,6 +481,12 @@ EMCC_EH_LIBGNAT_UNITS = \
 # compiled with emcc and linked into the emcc RTS.
 EMCC_GNAT_C_FILES = adaint.c adaint.h runtime.h argv.c exit.c
 
+# adaint.c defines __gnat_lseek / __gnat_dup2 returning int, but s-os_lib
+# imports them as procedures; under wasm that mismatch binds the Ada calls to a
+# trap stub.  Rename the C definitions; void wrappers with the original names
+# live in text_io_emcc_shim.c.
+ADAINT_RENAMES = -D__gnat_lseek=__gnat_lseek_int -D__gnat_dup2=__gnat_dup2_int
+
 # --- list-driven RTS file copying ---------------------------------------
 #
 # Naming convention for forked sources in $(AWP_SRC)/rtl/:
@@ -683,7 +689,7 @@ define build-wasm-rts
 	  echo ">>> Compile text_io_emcc_shim.c (emcc)" && \
 	  $(EMCC) -c -O2 ../adainclude/text_io_emcc_shim.c -o text_io_emcc_shim.o && \
 	  echo ">>> Compile adaint.c (emcc)" && \
-	  $(EMCC) -c -O2 -DIN_RTS -DSTANDALONE -I../adainclude \
+	  $(EMCC) -c -O2 -DIN_RTS -DSTANDALONE $(ADAINT_RENAMES) -I../adainclude \
 	    ../adainclude/adaint.c -o adaint.o && \
 	  echo ">>> Compile argv.c (emcc)" && \
 	  $(EMCC) -c -O2 -DIN_RTS -DSTANDALONE -I../adainclude \
@@ -706,7 +712,7 @@ define build-wasm-rts
 	  echo ">>> Compile text_io_emcc_shim.c (wasi)" && \
 	  $$WICC -c ../adainclude/text_io_emcc_shim.c -o text_io_emcc_shim.o && \
 	  echo ">>> Compile adaint.c (wasi)" && \
-	  $$WICC -c ../adainclude/adaint.c -o adaint.o && \
+	  $$WICC -c $(ADAINT_RENAMES) ../adainclude/adaint.c -o adaint.o && \
 	  echo ">>> Compile argv.c (wasi)" && \
 	  $$WICC -c ../adainclude/argv.c -o argv.o && \
 	  echo ">>> Compile exit.c (wasi)" && \

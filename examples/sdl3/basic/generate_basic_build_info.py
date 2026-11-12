@@ -26,18 +26,14 @@ def main() -> int:
     output = Path(os.environ.get("BUILD_INFO_OUT", ".objs/basic_build_info.ads"))
     output.parent.mkdir(parents=True, exist_ok=True)
 
-    #  An explicit llvm-config wins; otherwise the clang bundled with the
-    #  gnat_llvm Alire toolchain (same LLVM as the compiler); otherwise the
-    #  llvm-config on PATH.
-    bundled_clang = Path(os.environ.get("GNAT_LLVM_PREFIX", "")) / "bin" / "clang"
+    #  An explicit llvm-config wins; otherwise ask the compiler, whose
+    #  --version reports the LLVM it was built with.
     if llvm_config:
         llvm_version = capture([llvm_config, "--version"])
-    elif os.environ.get("GNAT_LLVM_PREFIX") and bundled_clang.exists():
-        match = re.search(r"clang version (\S+)",
-                          capture([str(bundled_clang), "--version"]))
-        llvm_version = match.group(1) if match else ""
     else:
-        llvm_version = capture(["llvm-config", "--version"])
+        match = re.search(r"^LLVM (\S+)$",
+                          capture(["llvm-gcc", "--version"]), re.MULTILINE)
+        llvm_version = match.group(1) if match else ""
     llvm_version = llvm_version or "unknown LLVM version"
 
     output.write_text(

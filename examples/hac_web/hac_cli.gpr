@@ -1,11 +1,10 @@
---  Builds a command-line HAC compiler driver (hac_cli_main.adb) for wasm32.
+--  Builds HAC's own command-line tool (hac/src/apps/hac.adb) for wasm32.
 --
---  Linked with -sNODERAWFS=1 (see the Makefile), the resulting hac_cli.js
---  behaves like the native `hac` binary: it reads argv, opens source and data
---  files on the real file system relative to the current directory, and exits
---  with the program's exit status. This lets HAC's own regression harness
---  (test/all_silent_tests) drive the wasm compiler unchanged, by using a thin
---  `hac` wrapper script that runs this module under node.
+--  Linked with -sNODERAWFS=1, the resulting hac_cli.js behaves like the
+--  native `hac` binary: it reads argv, opens source and data files on the
+--  real file system relative to the current directory, and exits with the
+--  program's exit status. This lets HAC's own regression harness
+--  (test/all_silent_tests) drive the wasm compiler unchanged.
 
 with "hac_common.gpr";
 
@@ -15,17 +14,15 @@ project HAC_CLI is
    for Runtime ("Ada") use HAC_Common'Runtime ("Ada");
    for Object_Dir use ".objs_cli";
    for Exec_Dir use ".";
-   for Main use ("hac_cli_main.adb");
+   for Main use ("hac.adb");
 
-   --  HAC's own CLI (hac/src/apps: hac.adb + hac_pkg.adb) is not used:
-   --  hac_cli_main.adb (in this directory) is a small wasm-oriented front end
-   --  that wires up NODERAWFS and the search-path catalogue instead.
-   for Source_Dirs use (".") & HAC_Common.HAC_Source_Dirs;
+   for Source_Dirs use
+     HAC_Common.HAC_Source_Dirs & (HAC_Common.HAC_Dir & "src/apps");
 
    package Compiler renames HAC_Common.Compiler;
 
    package Builder is
-      for Executable ("hac_cli_main.adb") use "hac_cli.js";
+      for Executable ("hac.adb") use "hac_cli.js";
    end Builder;
 
    --  Keep in sync with EMCC_CLI_FLAGS in the Makefile

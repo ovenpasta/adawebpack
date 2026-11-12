@@ -123,9 +123,9 @@ samples.js: $(addprefix hac/exm/,$(addsuffix .adb,$(SAMPLES)))
 	done
 	@echo "];" >> $@
 
-.objs_cli/.built: hac_cli.gpr hac_cli_main.adb | check-ada-tools
+.objs_cli/.built: hac_cli.gpr | check-ada-tools
 	mkdir -p .objs_cli
-	PATH=$(LLVM_BIN_DIR):$$PATH $(GPRBUILD) $(GPRBUILD_FLAGS) -c -b -p -P hac_cli.gpr hac_cli_main.adb
+	PATH=$(LLVM_BIN_DIR):$$PATH $(GPRBUILD) $(GPRBUILD_FLAGS) -c -b -p -P hac_cli.gpr hac.adb
 	touch $@
 
 hac_cli.js: .objs_cli/.built $(ADA_RUNTIME_LIB)

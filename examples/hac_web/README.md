@@ -62,41 +62,22 @@ python3 -m http.server
 # open http://localhost:8000/index.html
 ```
 
+With the `gnat_llvm` Alire toolchain instead (emcc on PATH): `alr build`
+builds both `hac_web.js` and `hac_cli.js`, cloning HAC into `hac/` first if
+needed.
+
 ## Command-line tool (`hac_cli.js`)
 
-`hac_cli_main.adb` is a minimal command-line front end. Linked with
-`-sNODERAWFS=1`, it gets transparent access to the real Node filesystem, argv,
-the working directory and the process exit code, so it behaves like the native
-`hac` binary:
+`hac_cli.js` is HAC's own command-line tool (`hac/src/apps/hac.adb`), built
+unmodified. Linked with `-sNODERAWFS=1`, it gets transparent access to the real
+Node filesystem, argv, the working directory and the process exit code, so it
+behaves like the native `hac` binary:
 
 ```sh
 make cli EMCC=/usr/lib/emscripten/emcc GPRBUILD="alr exec -- gprbuild"
 node hac_cli.js path/to/program.adb [program args...]
+node hac_cli.js            # usage and options
 ```
-
-It takes the first non-option argument as the Ada source file, compiles and runs
-it, and exits non-zero if the build fails or the HAC VM reports an unhandled
-exception. An exit status the running program sets itself
-(`Ada.Command_Line.Set_Exit_Status`) flows through to the process exit code.
-
-Supported options (a subset of the native tool, enough for HAC's own suite):
-
-- `-c`       compile only, do not run (used by the remarks regression test).
-- `-r...`    enable/disable remarks: `-r0`..`-r3` set a level; `-rk`/`-rr`/`-ru`/`-rv`
-             enable a kind, the uppercase letter disables it.
-- `-I<dir>`  add `<dir>` to the source search path.
-
-The `--!hac_add_to_path <dir>` source directive is honoured too, via the
-search-path-aware catalogue in `HAC_CLI_Paths`. This matters for the Advent of
-Code tests, whose shared `aoc_toolbox` unit lives one directory above the
-per-year sources.
-
-This is a small wasm-oriented front end rather than HAC's full CLI
-(`src/apps/hac.adb` + `hac_pkg.adb`): it wires up `NODERAWFS` and the
-search-path catalogue for the browser/Node setting. (Its post-mortem reporting
-uses `Exception_Message` and a choice-parameter handler, which run fine on the
-EH runtime - those only had to be avoided under the old
-`No_Exception_Propagation` runtime.)
 
 ## Running HAC's own regression suite inside wasm
 
@@ -148,11 +129,7 @@ The interesting parts that make this work:
    set to `True`, so the binder-generated main accepts argc/argv and returns an
    exit status (needed for the CLI and the self-checking AoC tests).
 
-4. **`HAC_CLI_Paths`**: a small, self-contained search-path catalogue (extends
-   HAC's default file catalogue) so the CLI resolves `-I` and `--!hac_add_to_path`
-   directories without dragging in `hac_pkg`.
-
-5. **`hac_command` knob** (the only HAC patch, shipped as
+4. **`hac_command` knob** (the only HAC patch, shipped as
    `patches/hac-test-harness.patch`): `all_silent_tests.adb` and
    `remarks_check.adb` read `hac_command` to pick the HAC command, defaulting to
    the original relative `../hac` path when unset, so the native suite is
@@ -163,7 +140,7 @@ The interesting parts that make this work:
 
 - `hac_web.adb`, `hac_runner.ad[sb]`, `mem_source.ad[sb]`, `index.html`
   - the interactive browser demo.
-- `hac_cli_main.adb`, `hac_cli_paths.ad[sb]` - the command-line tool.
-- `hac_cli.gpr`, `hac_web.gpr`, `Makefile` - build wiring.
+- `hac_cli.gpr` (HAC's own CLI), `hac_web.gpr`, `hac_common.gpr`,
+  `alire.toml`, `Makefile` - build wiring.
 - `run_wasm_tests.sh` - drive HAC's regression suite against the wasm build.
 - `patches/hac-test-harness.patch` - the lone HAC patch (test driver only).

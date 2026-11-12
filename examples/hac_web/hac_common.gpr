@@ -17,8 +17,8 @@ abstract project HAC_Common is
    for Runtime ("Ada") use
      GNAT_LLVM_Prefix & "/lib/gnat-llvm/wasm32/rts-wasm-emcc-eh";
 
-   --  The HAC compiler/VM sources (HAC's own command-line tools in
-   --  "src/apps" are not used, see hac_cli.gpr).
+   --  The HAC compiler/VM sources (hac_cli.gpr adds HAC's own command-line
+   --  tool from "src/apps").
    HAC_Dir := Project'Project_Dir & "hac/";
    HAC_Source_Dirs :=
      (HAC_Dir & "src",

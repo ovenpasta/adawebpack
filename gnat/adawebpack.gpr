@@ -41,6 +41,44 @@ project AdaWebPack is
 
    for Target use "llvm";
 
+   --  Runtime selection.  GNAT_LLVM_PREFIX is exported by the gnat_llvm
+   --  Alire toolchain crate; the default matches the in-tree layout
+   --  (adawebpack_src checked out under llvm-interface/).  Applications
+   --  pick it up with:
+   --
+   --     for Runtime ("Ada") use AdaWebPack'Runtime ("Ada");
+   --
+   --  The exnref runtimes also need GNAT_WASM_EH=exnref in the environment
+   --  of the compiler.
+
+   type Runtime_Kind is
+     ("wasm", "wasm-eh", "wasm-eh-exnref",
+      "wasm-emcc", "wasm-emcc-eh", "wasm-emcc-eh-exnref",
+      "wasm-wasi-eh", "wasm-wasi-eh-exnref");
+   Runtime_Name : Runtime_Kind := external ("ADAWEBPACK_RUNTIME", "wasm-eh");
+
+   GNAT_LLVM_Prefix :=
+     external ("GNAT_LLVM_PREFIX", Project'Project_Dir & "../..");
+
+   for Runtime ("Ada") use
+     GNAT_LLVM_Prefix & "/lib/gnat-llvm/wasm32/rts-" & Runtime_Name;
+
+   --  Linker switches for applications.  Only the standalone runtimes are
+   --  linked by gprbuild; Emscripten and WASI applications are linked by
+   --  emcc / wasm-ld after "gprbuild -c -b".
+
+   Linker_Switches := ();
+
+   case Runtime_Name is
+      when "wasm" | "wasm-eh" | "wasm-eh-exnref" =>
+         Linker_Switches :=
+           ("--target=wasm32", "-nostdlib", "-Wl,--export-all",
+            "-Wl,--allow-undefined", "-Wl,--no-entry");
+
+      when others =>
+         null;
+   end case;
+
 --   for Library_Name use "AdaWebPack";
 --   for Library_Dir use "../.libs";
 --   for Library_ALI_Dir use "../.libs/alis";

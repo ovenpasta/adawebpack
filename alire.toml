@@ -1,0 +1,48 @@
+name = "adawebpack"
+description = "Ada bindings to Web APIs for WebAssembly (GNAT-LLVM)"
+version = "24.1.0-dev"
+long-description = """
+AdaWebPack: DOM, HTML, WebGL, XHR and other Web API bindings for Ada
+programs compiled to WebAssembly with GNAT-LLVM.
+
+The runtime is selected with the ADAWEBPACK_RUNTIME scenario variable
+(default "wasm-eh"). In the application's alire.toml:
+
+    [gpr-set-externals]
+    ADAWEBPACK_RUNTIME = "wasm-eh"
+
+and in the application's project file:
+
+    with "adawebpack.gpr";
+    project App is
+       for Target use AdaWebPack'Target;
+       for Runtime ("Ada") use AdaWebPack'Runtime ("Ada");
+       package Compiler renames AdaWebPack.Compiler;
+       package Linker is
+          for Switches ("Ada") use AdaWebPack.Linker_Switches;
+       end Linker;
+    end App;
+
+The browser glue is in ${ADAWEBPACK_ALIRE_PREFIX}/source/adawebpack.mjs.
+The *-exnref runtimes also need GNAT_WASM_EH=exnref (set it in the
+application's [environment]).
+"""
+licenses = "BSD-3-Clause"
+authors = ["Vadim Godunko"]
+maintainers = ["Aldo Nicolas Bruno <ovenpasta@pizzahack.eu>"]
+maintainers-logins = ["ovenpasta"]
+website = "https://github.com/ovenpasta/adawebpack"
+tags = ["wasm", "webassembly", "web", "browser", "dom", "webgl"]
+
+project-files = ["gnat/adawebpack.gpr"]
+
+[configuration]
+disabled = true
+
+[gpr-externals]
+ADAWEBPACK_RUNTIME = ["wasm", "wasm-eh", "wasm-eh-exnref",
+                      "wasm-emcc", "wasm-emcc-eh", "wasm-emcc-eh-exnref",
+                      "wasm-wasi-eh", "wasm-wasi-eh-exnref"]
+
+[[depends-on]]
+gnat_llvm = "^16.1.0"

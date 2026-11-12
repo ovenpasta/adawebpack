@@ -30,9 +30,19 @@ jobs:
       #  The gnat_llvm crate is not in the community index (yet): build a
       #  one-crate index from the manifest attached to the release.
       - name: Add the gnat_llvm index
+        id: index
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          #  No published release yet: skip the build steps (with a warning)
+          #  rather than fail.
+          if ! gh release view ${{ inputs.gnat_llvm_release }} \
+                 -R ovenpasta/gnat-llvm > /dev/null 2>&1; then
+            echo "::warning::no published gnat_llvm release in ovenpasta/gnat-llvm; skipping the build"
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "available=true" >> "$GITHUB_OUTPUT"
           mkdir -p "$RUNNER_TEMP/index/gn/gnat_llvm"
           echo 'version = "1.4.0"' > "$RUNNER_TEMP/index/index.toml"
           gh release download ${{ inputs.gnat_llvm_release }} \
@@ -42,10 +52,12 @@ jobs:
           alr index --add "$RUNNER_TEMP/index" --name gnat_llvm
 
       - uses: mymindstorm/setup-emsdk@v16
+        if: steps.index.outputs.available == 'true'
         with:
           version: ${{ env.EMSDK_VERSION }}
 
       - name: Build the standalone examples
+        if: steps.index.outputs.available == 'true'
         run: |
           for e in call_ada toggle_hidden webgl_basic; do
             (cd examples/$e && alr -n build)
@@ -53,12 +65,14 @@ jobs:
           done
 
       - name: Build HAC
+        if: steps.index.outputs.available == 'true'
         working-directory: examples/hac_web
         run: |
           alr -n build
           test -f hac_web.wasm && test -f hac_cli.wasm
 
       - name: Smoke-test HAC under node
+        if: steps.index.outputs.available == 'true'
         working-directory: examples/hac_web/hac
         run: |
           set -x

@@ -1,4 +1,7 @@
-LLVM_INTERFACE_DIR := $(abspath ../../..)
+#  GNAT-LLVM install: the gnat_llvm Alire toolchain (GNAT_LLVM_PREFIX, set by
+#  "alr exec" / "alr build") or else this source tree.
+GNAT_LLVM_PREFIX ?= $(abspath ../../..)
+LLVM_INTERFACE_DIR ?= $(GNAT_LLVM_PREFIX)
 
 GPRBUILD ?= gprbuild
 #  Standalone (no Emscripten) EH runtime: full Ada exception propagation

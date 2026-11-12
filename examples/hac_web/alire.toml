@@ -1,0 +1,28 @@
+name = "adawebpack_hac_web"
+description = "HAC (the HAC Ada Compiler) compiled to WebAssembly with GNAT-LLVM"
+version = "0.1.0-dev"
+licenses = "BSD-3-Clause"
+authors = ["Aldo Nicolas Bruno"]
+maintainers = ["Aldo Nicolas Bruno <ovenpasta@pizzahack.eu>"]
+maintainers-logins = ["ovenpasta"]
+
+#  hac_web.js: browser demo; hac_cli.js: command-line HAC for node.
+#  Both link with emcc (Linker'Driver, override with the EMCC external).
+project-files = ["hac_web.gpr", "hac_cli.gpr"]
+
+[configuration]
+disabled = true
+
+[[depends-on]]
+gnat_llvm = "^16.1.0"
+
+#  HAC sources are a plain upstream checkout in hac/ (see README.md)
+[[actions]]
+type = "pre-build"
+command = ["sh", "-c",
+  "test -d hac || git clone --depth 1 https://github.com/zertovitch/hac hac"]
+
+#  Page assets (needs jq and ImageMagick)
+[[actions]]
+type = "post-build"
+command = ["make", "samples.js", "hac_icon.png"]

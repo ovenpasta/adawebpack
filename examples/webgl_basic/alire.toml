@@ -1,0 +1,22 @@
+name = "adawebpack_webgl_basic"
+description = "AdaWebPack example: webgl_basic"
+version = "0.1.0-dev"
+licenses = "BSD-3-Clause"
+authors = ["Vadim Godunko"]
+maintainers = ["Aldo Nicolas Bruno <ovenpasta@pizzahack.eu>"]
+maintainers-logins = ["ovenpasta"]
+project-files = ["test.gpr"]
+
+[configuration]
+disabled = true
+
+[[depends-on]]
+adawebpack = "*"
+
+[[pins]]
+adawebpack = { path = "../.." }
+
+#  JS glue loaded by index.html
+[[actions]]
+type = "post-build"
+command = ["make", "adawebpack.mjs"]

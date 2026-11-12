@@ -1,12 +1,26 @@
+with "../sdl3_common.gpr";
+
 project TTF is
 
-   for Target use "llvm";
+   for Target use SDL3_Common'Target;
+   for Runtime ("Ada") use SDL3_Common'Runtime ("Ada");
    for Object_Dir use ".objs";
+   for Exec_Dir use ".";
    for Source_Dirs use (".", "../bindings", ".objs");
    for Main use ("sdl3_ttf_main.adb");
 
-   package Compiler is
-      for Switches ("Ada") use ("--target=wasm32", "-O1", "-gnatp");
-   end Compiler;
+   package Compiler renames SDL3_Common.Compiler;
+
+   package Builder is
+      for Executable ("sdl3_ttf_main.adb") use "ttf.html";
+   end Builder;
+
+   package Linker extends SDL3_Common.Linker is
+      for Switches ("Ada") use
+        SDL3_Common.Linker_Switches
+        & ("--embed-file",
+            Project'Project_Dir & "PlayfairDisplay-Regular.ttf@/PlayfairDisplay-Regular.ttf")
+        & (SDL3_Common.SDL3_TTF_Lib, SDL3_Common.SDL3_Lib);
+   end Linker;
 
 end TTF;

@@ -1,0 +1,38 @@
+--  Settings shared by hac_web.gpr and hac_cli.gpr.
+--
+--  The Makefile compiles and binds with "gprbuild -c -b" and links with emcc
+--  itself.  "alr build" (or a plain gprbuild) also links, through emcc as the
+--  linker driver, producing hac_web.js / hac_cli.js (+ .wasm).
+
+abstract project HAC_Common is
+
+   for Source_Files use ();
+
+   --  GNAT-LLVM install: the gnat_llvm Alire toolchain, else this source
+   --  tree (adawebpack_src checked out under llvm-interface/).
+   GNAT_LLVM_Prefix :=
+     external ("GNAT_LLVM_PREFIX", Project'Project_Dir & "../../..");
+
+   for Target use "llvm";
+   for Runtime ("Ada") use
+     GNAT_LLVM_Prefix & "/lib/gnat-llvm/wasm32/rts-wasm-emcc-eh";
+
+   --  The HAC compiler/VM sources (HAC's own command-line tools in
+   --  "src/apps" are not used, see hac_cli.gpr).
+   HAC_Dir := Project'Project_Dir & "hac/";
+   HAC_Source_Dirs :=
+     (HAC_Dir & "src",
+      HAC_Dir & "src/compile",
+      HAC_Dir & "src/compile/emit",
+      HAC_Dir & "src/execute",
+      HAC_Dir & "src/manage");
+
+   package Compiler is
+      for Switches ("Ada") use ("--target=wasm32", "-O1", "-gnatp");
+   end Compiler;
+
+   package Linker is
+      for Driver use external ("EMCC", "emcc");
+   end Linker;
+
+end HAC_Common;

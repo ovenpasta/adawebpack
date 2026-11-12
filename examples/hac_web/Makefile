@@ -1,6 +1,9 @@
 .DEFAULT_GOAL := all
 
-LLVM_INTERFACE_DIR := $(abspath ../../..)
+#  GNAT-LLVM install: the gnat_llvm Alire toolchain (GNAT_LLVM_PREFIX, set by
+#  "alr exec" / "alr build") or else this source tree.
+GNAT_LLVM_PREFIX ?= $(abspath ../../..)
+LLVM_INTERFACE_DIR ?= $(GNAT_LLVM_PREFIX)
 LLVM_BIN_DIR := $(LLVM_INTERFACE_DIR)/bin
 
 EMCC ?= emcc

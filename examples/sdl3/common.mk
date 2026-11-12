@@ -1,5 +1,8 @@
 SDL3_ROOT := $(abspath ..)
-LLVM_INTERFACE_DIR := $(abspath ../../../..)
+#  GNAT-LLVM install: the gnat_llvm Alire toolchain (GNAT_LLVM_PREFIX, set by
+#  "alr exec" / "alr build") or else this source tree.
+GNAT_LLVM_PREFIX ?= $(abspath ../../../..)
+LLVM_INTERFACE_DIR ?= $(GNAT_LLVM_PREFIX)
 LLVM_BIN_DIR := $(LLVM_INTERFACE_DIR)/bin
 
 EMCC ?= emcc
@@ -7,7 +10,7 @@ EM_CACHE ?= /tmp/emscripten-cache
 GPRBUILD ?= gprbuild
 LLVM_GCC ?= $(LLVM_BIN_DIR)/llvm-gcc
 GNATBIND ?= $(LLVM_BIN_DIR)/llvm-gnatbind
-LLVM_CONFIG ?= llvm-config
+LLVM_CONFIG ?=
 LLVM_LIBRARY_PATH ?=
 # EH-enabled emcc runtime: full Ada exception propagation via back-end ZCX
 # + the WebAssembly exception-handling proposal. Every emcc link must carry

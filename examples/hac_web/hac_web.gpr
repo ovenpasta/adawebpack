@@ -1,22 +1,30 @@
+with "hac_common.gpr";
+
 project HAC_Web is
 
-   for Target use "llvm";
+   for Target use HAC_Common'Target;
+   for Runtime ("Ada") use HAC_Common'Runtime ("Ada");
    for Object_Dir use ".objs";
    for Exec_Dir use ".";
    for Main use ("hac_web.adb");
 
-   --  The driver plus the HAC compiler/VM sources (the "src/apps" command-line
-   --  tools are deliberately excluded: they pull in Ada.Command_Line).
-   for Source_Dirs use
-     (".",
-      "hac/src",
-      "hac/src/compile",
-      "hac/src/compile/emit",
-      "hac/src/execute",
-      "hac/src/manage");
+   --  The driver plus the HAC compiler/VM sources
+   for Source_Dirs use (".") & HAC_Common.HAC_Source_Dirs;
 
-   package Compiler is
-      for Switches ("Ada") use ("--target=wasm32", "-O1", "-gnatp");
-   end Compiler;
+   package Compiler renames HAC_Common.Compiler;
+
+   package Builder is
+      for Executable ("hac_web.adb") use "hac_web.js";
+   end Builder;
+
+   --  Keep in sync with EMCC_FLAGS in the Makefile
+   package Linker extends HAC_Common.Linker is
+      for Switches ("Ada") use
+        ("-O2", "-fwasm-exceptions", "-sALLOW_MEMORY_GROWTH=1",
+         "-sSTACK_SIZE=8388608", "-sEXIT_RUNTIME=0",
+         "-sMODULARIZE=1", "-sEXPORT_NAME=createHacModule",
+         "-sEXPORTED_FUNCTIONS=_main,_hac_compile_and_run,_malloc,_free",
+         "-sEXPORTED_RUNTIME_METHODS=ccall,cwrap");
+   end Linker;
 
 end HAC_Web;

@@ -7,28 +7,32 @@
 --  (test/all_silent_tests) drive the wasm compiler unchanged, by using a thin
 --  `hac` wrapper script that runs this module under node.
 
+with "hac_common.gpr";
+
 project HAC_CLI is
 
-   for Target use "llvm";
+   for Target use HAC_Common'Target;
+   for Runtime ("Ada") use HAC_Common'Runtime ("Ada");
    for Object_Dir use ".objs_cli";
    for Exec_Dir use ".";
    for Main use ("hac_cli_main.adb");
 
-   --  Deliberately excludes HAC's own hac/src/apps (hac.adb + hac_pkg.adb):
-   --  their post-mortem reporting needs Ada.Exceptions.Exception_Message and
-   --  exception propagation, neither available under the wasm runtime's
-   --  pragma Restrictions (No_Exception_Propagation). hac_cli_main.adb (in this
-   --  directory) provides the equivalent command-line behaviour instead.
-   for Source_Dirs use
-     (".",
-      "hac/src",
-      "hac/src/compile",
-      "hac/src/compile/emit",
-      "hac/src/execute",
-      "hac/src/manage");
+   --  HAC's own CLI (hac/src/apps: hac.adb + hac_pkg.adb) is not used:
+   --  hac_cli_main.adb (in this directory) is a small wasm-oriented front end
+   --  that wires up NODERAWFS and the search-path catalogue instead.
+   for Source_Dirs use (".") & HAC_Common.HAC_Source_Dirs;
 
-   package Compiler is
-      for Switches ("Ada") use ("--target=wasm32", "-O1", "-gnatp");
-   end Compiler;
+   package Compiler renames HAC_Common.Compiler;
+
+   package Builder is
+      for Executable ("hac_cli_main.adb") use "hac_cli.js";
+   end Builder;
+
+   --  Keep in sync with EMCC_CLI_FLAGS in the Makefile
+   package Linker extends HAC_Common.Linker is
+      for Switches ("Ada") use
+        ("-O2", "-fwasm-exceptions", "-sALLOW_MEMORY_GROWTH=1",
+         "-sSTACK_SIZE=16777216", "-sNODERAWFS=1", "-sEXIT_RUNTIME=1");
+   end Linker;
 
 end HAC_CLI;

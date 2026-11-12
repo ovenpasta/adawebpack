@@ -1,0 +1,48 @@
+--  Settings shared by the SDL3 examples.
+--
+--  The Makefiles compile and bind with "gprbuild -c -b" and link with emcc
+--  themselves.  "alr build" (or a plain gprbuild) also links, through emcc as
+--  the linker driver, producing <example>.html/.js/.wasm.
+
+abstract project SDL3_Common is
+
+   for Source_Files use ();
+
+   --  GNAT-LLVM install: the gnat_llvm Alire toolchain, else this source
+   --  tree (adawebpack_src checked out under llvm-interface/).
+   GNAT_LLVM_Prefix :=
+     external ("GNAT_LLVM_PREFIX", Project'Project_Dir & "../../..");
+
+   for Target use "llvm";
+   for Runtime ("Ada") use
+     GNAT_LLVM_Prefix & "/lib/gnat-llvm/wasm32/rts-wasm-emcc-eh";
+
+   package Compiler is
+      for Switches ("Ada") use ("--target=wasm32", "-O1", "-gnatp");
+   end Compiler;
+
+   --  SDL3 web builds (see README.md for building them)
+   SDL3_Prefix :=
+     external ("SDL3_PREFIX", Project'Project_Dir & "sdl3-prefix");
+   SDL3_Image_Prefix :=
+     external ("SDL3_IMAGE_PREFIX", Project'Project_Dir & "sdl3-image-prefix");
+   SDL3_TTF_Prefix :=
+     external ("SDL3_TTF_PREFIX", Project'Project_Dir & "sdl3-ttf-prefix");
+
+   SDL3_Lib       := SDL3_Prefix & "/lib/libSDL3.a";
+   SDL3_Image_Lib := SDL3_Image_Prefix & "/lib/libSDL3_image.a";
+   SDL3_TTF_Lib   := SDL3_TTF_Prefix & "/lib/libSDL3_ttf.a";
+
+   --  emcc link switches common to all examples (the link runs in the
+   --  object directory, so paths are absolute).
+   Linker_Switches :=
+     ("-O2", "-fwasm-exceptions", "-sALLOW_MEMORY_GROWTH=1",
+      "-sSTACK_SIZE=8388608", "-sINVOKE_RUN=0",
+      "--pre-js", Project'Project_Dir & "sdl3_ada_pre.js",
+      "--js-library", Project'Project_Dir & "ada_runtime_support.js");
+
+   package Linker is
+      for Driver use external ("EMCC", "emcc");
+   end Linker;
+
+end SDL3_Common;

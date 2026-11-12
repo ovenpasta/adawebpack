@@ -1,0 +1,22 @@
+name = "adawebpack_sdl3_basic"
+description = "SDL3 example in Ada for the browser (GNAT-LLVM + Emscripten)"
+version = "0.1.0-dev"
+licenses = "BSD-3-Clause"
+authors = ["Aldo Nicolas Bruno"]
+maintainers = ["Aldo Nicolas Bruno <ovenpasta@pizzahack.eu>"]
+maintainers-logins = ["ovenpasta"]
+project-files = ["basic.gpr"]
+
+#  Links with emcc (Linker'Driver, override with the EMCC external) against
+#  the SDL3 web builds under ../sdl3-*-prefix (see ../README.md).
+
+[configuration]
+disabled = true
+
+[[depends-on]]
+gnat_llvm = "^16.1.0"
+
+#  Generates .objs/basic_build_info.ads (LLVM version shown on screen)
+[[actions]]
+type = "pre-build"
+command = ["python3", "generate_basic_build_info.py"]

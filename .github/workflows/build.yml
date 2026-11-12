@@ -1,133 +1,71 @@
+#  Build the AdaWebPack examples with Alire against the latest gnat_llvm
+#  toolchain release of ovenpasta/gnat-llvm (which builds the runtimes from
+#  this repository), and smoke-test HAC under node.
+
+name: build
+
 on:
   push:
-    branches:
-      - master
-      - topic/gha_up
+    branches: [master]
   pull_request:
-name: Build binaries
+  workflow_dispatch:
+    inputs:
+      gnat_llvm_release:
+        description: "ovenpasta/gnat-llvm release tag (default: latest)"
+        default: ""
+
+env:
+  EMSDK_VERSION: "5.0.2"   # must match the gnat-llvm release build
+
 jobs:
   build:
-    name: Build
-    strategy:
-      fail-fast: false
-      matrix: # Build debug and production
-        os: [ubuntu-22.04] # , windows-latest] # there is no LLD 14 in msys2 anymore
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-22.04
     steps:
-      - name: 'git config'
-        run: git config --global core.autocrlf input
-        shell: bash
+      - uses: actions/checkout@v4
 
-      - name: Get gnat-llvm
-        uses: actions/checkout@v2
-        if: ${{ runner.os != 'Windows' }}
-        with:
-          repository: AdaCore/gnat-llvm
-          ref: '66e36d929524972353600db5d604d0189cf0308f'
-          path: gnat-llvm
+      #  The default gnat_native gprbuild selection is fine: crates that
+      #  depend on gnat_llvm use it regardless.
+      - uses: alire-project/setup-alire@v6
 
-      - name: Get bb-runtimes
-        uses: actions/checkout@v2
-        if: ${{ runner.os != 'Windows' }}
-        with:
-          repository: Fabien-Chouteau/bb-runtimes
-          path: gnat-llvm/llvm-interface/bb-runtimes
-          ref: 'gnat-fsf-14'
-
-      - name: Get gcc
-        uses: actions/checkout@v2
-        if: ${{ runner.os != 'Windows' }}
-        with:
-          repository: gcc-mirror/gcc
-          path: gnat-llvm/llvm-interface/gcc
-          ref: 'releases/gcc-14.1.0'
-
-      - name: Get AdaWebPack
-        uses: actions/checkout@v2
-        with:
-          path: gnat-llvm/llvm-interface/adawebpack_src
-
-      - name: Get GNAT toolchain with alire
-        uses: alire-project/setup-alire@v3
-        if: ${{ runner.os != 'Windows' }}
-        with:
-          toolchain: gnat_native^14 gprbuild
-
-      - name: Fetch LLVM
-        if: ${{ runner.os != 'Windows' }}
+      #  The gnat_llvm crate is not in the community index (yet): build a
+      #  one-crate index from the manifest attached to the release.
+      - name: Add the gnat_llvm index
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          URL=https://github.com/llvm/llvm-project/releases/download/llvmorg-16.0.4
-          curl -L $URL/clang+llvm-16.0.4-x86_64-linux-gnu-ubuntu-22.04.tar.xz \
-           | tar xJf -
+          mkdir -p "$RUNNER_TEMP/index/gn/gnat_llvm"
+          echo 'version = "1.4.0"' > "$RUNNER_TEMP/index/index.toml"
+          gh release download ${{ inputs.gnat_llvm_release }} \
+            -R ovenpasta/gnat-llvm --pattern 'gnat_llvm-*.toml' \
+            -D "$RUNNER_TEMP/index/gn/gnat_llvm"
+          cat "$RUNNER_TEMP"/index/gn/gnat_llvm/*.toml
+          alr index --add "$RUNNER_TEMP/index" --name gnat_llvm
 
-      - name: Build (Linux)
-        if: ${{ runner.os != 'Windows' }}
+      - uses: mymindstorm/setup-emsdk@v16
+        with:
+          version: ${{ env.EMSDK_VERSION }}
+
+      - name: Build the standalone examples
         run: |
-          alr toolchain --select gnat_native^14 gprbuild
-          export PREFIX=$PWD/adawebpack
-          export PATH=$PWD/gnat-llvm/llvm-interface/bin:$PATH
-          export PATH=`ls -d $HOME/.local/share/alire/toolchains/*/bin |tr '\n' ':'`$PATH
-          export PATH=$PWD/clang+llvm-16.0.4-x86_64-linux-gnu-ubuntu-22.04/bin:$PATH
-          echo PATH=$PATH
-          pwd
-          ls -l
-          ls -l gnat-llvm/llvm-interface/
-          cd gnat-llvm/llvm-interface
-          patch -p1 < adawebpack_src/patches/gnat-llvm.patch
-          patch -p1 < adawebpack_src/patches/llvm_wrapper2.patch
-          ln -sv gcc/gcc/ada gnat_src
-          ln -sv adawebpack_src/source/rtl/Makefile.target
-          ln -sv bb-runtimes/gnat_rts_sources/include/rts-sources
-          make wasm
-          make -C adawebpack_src build_examples
+          for e in call_ada toggle_hidden webgl_basic; do
+            (cd examples/$e && alr -n build)
+            test -f examples/$e/main.wasm
+          done
+
+      - name: Build HAC
+        working-directory: examples/hac_web
+        run: |
+          alr -n build
+          test -f hac_web.wasm && test -f hac_cli.wasm
+
+      - name: Smoke-test HAC under node
+        working-directory: examples/hac_web/hac
+        run: |
           set -x
-          find -D exec bin -size +100k -exec chrpath -d {} \;
-          mkdir -p ${PREFIX}/share/gprconfig
-          mkdir -p ${PREFIX}/lib/gnat
-          mkdir -p ${PREFIX}/share/adawebpack
-          cp adawebpack_src/packages/Fedora/llvm.xml ${PREFIX}/share/gprconfig/
-          cp adawebpack_src/gnat/adawebpack_config.gpr ${PREFIX}/lib/gnat/
-          cp -r bin lib ${PREFIX}
-          cp -v adawebpack_src/source/adawebpack.mjs ${PREFIX}/share/adawebpack/
-          gprconfig --batch -o /tmp/llvm.cgpr --db `pwd`/adawebpack_src/packages/Fedora --target=llvm --config=ada,,
-          gprbuild --target=llvm -P adawebpack_src/gnat/adawebpack.gpr -p --config=/tmp/llvm.cgpr
-          gprinstall --target=llvm --prefix=${PREFIX} --project-subdir=${PREFIX}/lib/gnat -P adawebpack_src/gnat/adawebpack.gpr -p --config=/tmp/llvm.cgpr
-          cd `dirname ${PREFIX}`
-          tar czf ${PREFIX}.tar.gz `basename ${PREFIX}`
-
-      - name: Setup MSYS2
-        if: ${{ runner.os == 'Windows' }}
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: mingw64
-          install: |
-            base-devel
-            mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-gcc-ada
-            mingw-w64-x86_64-gprbuild
-
-# mingw-w64-x86_64-clang
-# mingw-w64-x86_64-lld
-
-      - name: Build MSYS2 package
-        if: ${{ runner.os == 'Windows' }}
-        shell: msys2 {0}
-        run: |
-          curl -O https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-llvm-14.0.6-6-any.pkg.tar.zst
-          curl -O https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-clang-14.0.6-6-any.pkg.tar.zst
-          curl -O https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-lld-14.0.6-6-any.pkg.tar.zst
-          pacman -U --noconfirm mingw-w64-x86_64-*-14.0.6-6-any.pkg.tar.zst
-          rm -rf *.tar.zst
-          mv gnat-llvm/llvm-interface/adawebpack_src adawebpack
-          cp -r adawebpack/packages/msys2 .
-          tar czf msys2/adawebpack.tar.gz adawebpack
-          cd msys2
-          makepkg-mingw --noconfirm --noprogressbar -sCLf
-          mv -v *.tar.zst ..
-
-      - name: Keep archive in artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: ${{ runner.os }}
-          path: "*.tar.*"
-
+          node ../hac_cli.js exm/hello.adb | grep -q "Hello world!"
+          node ../hac_cli.js exm/ackermann.adb
+          #  Unhandled exception in the HAC program: exit 1 with a trace-back
+          (cd test && ! node ../../hac_cli.js exception_01.adb)
+          #  --!hac_add_to_path and self-checking exit status
+          (cd exm/aoc/2024 && node ../../../../hac_cli.js aoc_2024_01.adb)
+          node ../hac_cli.js -c exm/hello.adb

@@ -22,7 +22,8 @@ type = "pre-build"
 command = ["sh", "-c",
   "test -d hac || git clone --depth 1 https://github.com/zertovitch/hac hac"]
 
-#  Page assets (needs jq and ImageMagick)
+#  Page assets for index.html (needs jq and ImageMagick 7); optional
 [[actions]]
 type = "post-build"
-command = ["make", "samples.js", "hac_icon.png"]
+command = ["sh", "-c",
+  "make samples.js hac_icon.png || echo 'page assets skipped (needs jq and ImageMagick 7)'"]

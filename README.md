@@ -1,4 +1,4 @@
-[![Build binaries](https://github.com/godunko/adawebpack/actions/workflows/build.yml/badge.svg)](https://github.com/godunko/adawebpack/actions/workflows/build.yml)
+[![build](https://github.com/ovenpasta/adawebpack/actions/workflows/build.yml/badge.svg)](https://github.com/ovenpasta/adawebpack/actions/workflows/build.yml)
 
 # AdaWebPack
 AdaWebPack provides the WebAssembly runtime and Web API bindings used with the

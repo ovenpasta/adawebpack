@@ -630,6 +630,8 @@ define build-wasm-rts
 	    cp -p $(AWP_SRC)/rtl/system__wasm_emcc_eh.ads $(1)/adainclude/system.ads; \
 	  elif [ "$(2)" = "wasi" ]; then \
 	    cp -p $(AWP_SRC)/rtl/system__wasm_wasi_eh.ads $(1)/adainclude/system.ads; \
+	    cp -p $(AWP_SRC)/rtl/wasi_run.ads $(AWP_SRC)/rtl/wasi_run.adb \
+	      $(1)/adainclude/; \
 	    cp -p $(AWP_SRC)/rtl/c/wasm_eh_unwind.c $(1)/adainclude/; \
 	    cp -p $(GNAT_SRC)/runtime.h $(1)/adainclude/; \
 	  else \
@@ -705,6 +707,8 @@ define build-wasm-rts
 	  cp -pr $(AWP_SRC)/rtl/c/wasi_stubs/sys $(1)/adainclude/; \
 	  cp -p $(AWP_SRC)/rtl/c/wasi_stubs/wasi_missing.h $(1)/adainclude/; \
 	  cp -p $(AWP_SRC)/rtl/c/wasi_stubs/wasi_missing.c $(1)/adainclude/; \
+	  cp -p $(AWP_SRC)/rtl/c/wasi_stubs/wasi_argv.c $(1)/adainclude/; \
+	  cp -p $(GNAT_SRC)/targext.c $(1)/adainclude/; \
 	  cd $(1)/adalib && \
 	  WICC="$(WASI_CC) --target=wasm32-wasip1 --sysroot=$(WASI_SYSROOT) -O2 \
 	    -D_WASI_EMULATED_SIGNAL -include wasi_missing.h \
@@ -713,10 +717,12 @@ define build-wasm-rts
 	  $$WICC -c ../adainclude/text_io_emcc_shim.c -o text_io_emcc_shim.o && \
 	  echo ">>> Compile adaint.c (wasi)" && \
 	  $$WICC -c $(ADAINT_RENAMES) ../adainclude/adaint.c -o adaint.o && \
-	  echo ">>> Compile argv.c (wasi)" && \
-	  $$WICC -c ../adainclude/argv.c -o argv.o && \
+	  echo ">>> Compile argv.c + __main_argc_argv (wasi)" && \
+	  $$WICC -c ../adainclude/wasi_argv.c -o argv.o && \
 	  echo ">>> Compile exit.c (wasi)" && \
 	  $$WICC -c ../adainclude/exit.c -o exit.o && \
+	  echo ">>> Compile targext.c (wasi)" && \
+	  $$WICC -c ../adainclude/targext.c -o targext.o && \
 	  echo ">>> Compile wasi_missing.c (wasi)" && \
 	  $$WICC -c ../adainclude/wasi_missing.c -o wasi_missing.o \
 	    || exit 1; \

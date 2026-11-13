@@ -20,6 +20,13 @@ int __gnat_backtrace (void **array, int size, void *exclude_min,
   return 0;
 }
 
-/* Terminate hook (normally from the binder/init.c).  Not reached on the
-   handled path; abort if an exception goes unhandled. */
+/* Terminate hook (normally from the binder/init.c), called by the last
+   chance handler after it has printed the unhandled exception.  WASI
+   programs are processes: exit with status 1, as upstream does.  Elsewhere
+   there is no process to exit, so trap. */
+#ifdef __wasi__
+#include <stdlib.h>
+void __gnat_unhandled_terminate (void) { exit (1); }
+#else
 void __gnat_unhandled_terminate (void) { __builtin_trap (); }
+#endif

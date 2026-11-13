@@ -1,7 +1,7 @@
 /* Declarations wasi-libc omits on purpose (no processes on WASI) but that
    adaint.c references on POSIX-ish targets.  Force-included when compiling
-   the host C files for the wasi runtime.  No implementations are provided:
-   these adaint.c entry points must not be reached under WASI. */
+   the host C files for the wasi runtime.  wasi_missing.c defines them as
+   stubs failing with ENOSYS, so programs referencing them still link. */
 #ifndef _WASI_MISSING_H
 #define _WASI_MISSING_H
 
